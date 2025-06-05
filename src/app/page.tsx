@@ -9,6 +9,7 @@ interface Touchpoint {
   title: string;
   description: string;
   emotion: 'positive' | 'neutral' | 'negative';
+  intensity: number; // 1-10 scale for emotion intensity
   xPosition: number;
 }
 
