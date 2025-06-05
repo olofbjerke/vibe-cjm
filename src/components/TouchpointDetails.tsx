@@ -1,15 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-
-interface Touchpoint {
-  id: string;
-  title: string;
-  description: string;
-  emotion: 'positive' | 'neutral' | 'negative';
-  intensity: number; // 1-10 scale for emotion intensity
-  xPosition: number;
-}
+import { type Touchpoint } from '@/lib/storage';
 
 interface TouchpointDetailsProps {
   touchpoints: Touchpoint[];
