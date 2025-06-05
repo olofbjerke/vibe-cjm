@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 interface Touchpoint {
   id: string;
@@ -15,26 +15,33 @@ interface JourneyMapProps {
   touchpoints: Touchpoint[];
   onTouchpointClick?: (touchpoint: Touchpoint) => void;
   onAddTouchpoint?: (touchpoint: Touchpoint) => void;
+  onUpdateTouchpoint?: (touchpoint: Touchpoint) => void;
 }
 
-export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchpoint }: JourneyMapProps) {
+export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchpoint, onUpdateTouchpoint }: JourneyMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const [dragging, setDragging] = useState<{ id: string; offset: { x: number; y: number } } | null>(null);
 
   const handleDoubleClick = (event: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || dragging) return;
 
     const rect = svgRef.current.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 800;
+    const y = ((event.clientY - rect.top) / rect.height) * 200;
     
     // Clamp x position between 40 and 760 to keep touchpoints visible
     const clampedX = Math.min(Math.max(x, 40), 760);
+    // Clamp y position to valid emotion ranges
+    const clampedY = Math.min(Math.max(y, 40), 160);
+    
+    const { emotion, intensity } = getEmotionFromY(clampedY);
 
     const newTouchpoint: Touchpoint = {
       id: Date.now().toString(),
       title: 'New Touchpoint',
-      description: 'Double-click to edit this touchpoint',
-      emotion: 'neutral',
-      intensity: 5,
+      description: 'Click to edit this touchpoint',
+      emotion,
+      intensity,
       xPosition: clampedX,
     };
 
@@ -42,7 +49,53 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
   };
 
   const handleTouchpointClick = (touchpoint: Touchpoint) => {
-    onTouchpointClick?.(touchpoint);
+    if (!dragging) {
+      onTouchpointClick?.(touchpoint);
+    }
+  };
+
+  const handleMouseDown = (event: React.MouseEvent, touchpoint: Touchpoint) => {
+    event.stopPropagation();
+    if (!svgRef.current) return;
+
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = ((event.clientX - rect.left) / rect.width) * 800;
+    const mouseY = ((event.clientY - rect.top) / rect.height) * 200;
+    
+    setDragging({
+      id: touchpoint.id,
+      offset: {
+        x: mouseX - touchpoint.xPosition,
+        y: mouseY - getEmotionY(touchpoint.emotion, touchpoint.intensity)
+      }
+    });
+  };
+
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (!dragging || !svgRef.current) return;
+
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = ((event.clientX - rect.left) / rect.width) * 800;
+    const mouseY = ((event.clientY - rect.top) / rect.height) * 200;
+    
+    const newX = Math.min(Math.max(mouseX - dragging.offset.x, 40), 760);
+    const newY = Math.min(Math.max(mouseY - dragging.offset.y, 40), 160);
+    
+    const { emotion, intensity } = getEmotionFromY(newY);
+    
+    const touchpoint = touchpoints.find(tp => tp.id === dragging.id);
+    if (touchpoint && onUpdateTouchpoint) {
+      onUpdateTouchpoint({
+        ...touchpoint,
+        xPosition: newX,
+        emotion,
+        intensity
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setDragging(null);
   };
 
   const getEmotionColor = (emotion: string) => {
@@ -64,19 +117,39 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     return baseY[emotion as keyof typeof baseY] || 100;
   };
 
+  const getEmotionFromY = (y: number): { emotion: 'positive' | 'neutral' | 'negative'; intensity: number } => {
+    // Convert Y position back to emotion and intensity
+    if (y <= 80) {
+      // Positive range (40-80)
+      const intensity = Math.round(5 - (y - 40) / 8);
+      return { emotion: 'positive', intensity: Math.max(1, Math.min(5, intensity)) };
+    } else if (y >= 120) {
+      // Negative range (120-160)
+      const intensity = Math.round(1 + (y - 120) / 8);
+      return { emotion: 'negative', intensity: Math.max(1, Math.min(5, intensity)) };
+    } else {
+      // Neutral range (80-100)
+      const intensity = Math.round(5 + (y - 90) / 4);
+      return { emotion: 'neutral', intensity: Math.max(1, Math.min(10, intensity)) };
+    }
+  };
+
   return (
     <div className="w-full bg-white rounded-lg border border-gray-200 p-6">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900 mb-1">Customer Journey Map</h2>
-        <p className="text-sm text-gray-600">Double-click on the path to add touchpoints</p>
+        <p className="text-sm text-gray-600">Double-click anywhere to add touchpoints • Drag to move and change emotion</p>
       </div>
       
       <svg
         ref={svgRef}
-        className="w-full h-48 sm:h-64 cursor-pointer"
+        className={`w-full h-48 sm:h-64 ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
         viewBox="0 0 800 200"
         preserveAspectRatio="xMidYMid meet"
         onDoubleClick={handleDoubleClick}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
         {/* Background grid */}
         <defs>
@@ -143,8 +216,9 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
               fill={getEmotionColor(touchpoint.emotion)}
               stroke="white"
               strokeWidth="2"
-              className="cursor-pointer hover:r-12 transition-all"
+              className={`${dragging?.id === touchpoint.id ? 'cursor-grabbing' : 'cursor-grab'} hover:r-12 transition-all`}
               onClick={() => handleTouchpointClick(touchpoint)}
+              onMouseDown={(e) => handleMouseDown(e, touchpoint)}
             />
             
             {/* Touchpoint label */}

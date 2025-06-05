@@ -66,6 +66,7 @@ export default function Home() {
             touchpoints={touchpoints}
             onTouchpointClick={handleTouchpointClick}
             onAddTouchpoint={handleAddTouchpoint}
+            onUpdateTouchpoint={handleUpdateTouchpoint}
           />
         </div>
 
