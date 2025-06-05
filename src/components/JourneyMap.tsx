@@ -134,6 +134,60 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     }
   };
 
+  const createSmoothPath = (touchpoints: Touchpoint[]): string => {
+    const sortedPoints = touchpoints
+      .sort((a, b) => a.xPosition - b.xPosition)
+      .map(tp => ({ x: tp.xPosition, y: getEmotionY(tp.emotion, tp.intensity) }));
+
+    if (sortedPoints.length === 0) return '';
+    if (sortedPoints.length === 1) return `M ${sortedPoints[0].x} ${sortedPoints[0].y}`;
+    if (sortedPoints.length === 2) {
+      return `M ${sortedPoints[0].x} ${sortedPoints[0].y} L ${sortedPoints[1].x} ${sortedPoints[1].y}`;
+    }
+
+    // Create smooth curve using cubic Bezier curves
+    let path = `M ${sortedPoints[0].x} ${sortedPoints[0].y}`;
+    
+    for (let i = 1; i < sortedPoints.length; i++) {
+      const curr = sortedPoints[i];
+      const prev = sortedPoints[i - 1];
+      const next = sortedPoints[i + 1];
+      
+      // Calculate control points for smooth curve
+      const tension = 0.3; // Adjust smoothness (0-1)
+      
+      if (i === 1) {
+        // First curve segment
+        const cp1x = prev.x + (curr.x - prev.x) * tension;
+        const cp1y = prev.y + (curr.y - prev.y) * tension;
+        const cp2x = curr.x - (next ? (next.x - prev.x) : (curr.x - prev.x)) * tension;
+        const cp2y = curr.y - (next ? (next.y - prev.y) : (curr.y - prev.y)) * tension;
+        
+        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+      } else if (i === sortedPoints.length - 1) {
+        // Last curve segment
+        const prev2 = sortedPoints[i - 2];
+        const cp1x = prev.x + (curr.x - prev2.x) * tension;
+        const cp1y = prev.y + (curr.y - prev2.y) * tension;
+        const cp2x = curr.x - (curr.x - prev.x) * tension;
+        const cp2y = curr.y - (curr.y - prev.y) * tension;
+        
+        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+      } else {
+        // Middle curve segments
+        const prev2 = sortedPoints[i - 2];
+        const cp1x = prev.x + (curr.x - prev2.x) * tension;
+        const cp1y = prev.y + (curr.y - prev2.y) * tension;
+        const cp2x = curr.x - (next.x - prev.x) * tension;
+        const cp2y = curr.y - (next.y - prev.y) * tension;
+        
+        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+      }
+    }
+    
+    return path;
+  };
+
   return (
     <div className="w-full bg-white rounded-lg border border-gray-200 p-6">
       <div className="mb-4">
@@ -180,12 +234,7 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
         {/* Touchpoint connecting line */}
         {touchpoints.length > 1 && (
           <path
-            d={touchpoints
-              .sort((a, b) => a.xPosition - b.xPosition)
-              .map((tp, index) => 
-                `${index === 0 ? 'M' : 'L'} ${tp.xPosition} ${getEmotionY(tp.emotion, tp.intensity)}`
-              )
-              .join(' ')}
+            d={createSmoothPath(touchpoints)}
             fill="none"
             stroke="#10b981"
             strokeWidth="4"
