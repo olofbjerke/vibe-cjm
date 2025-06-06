@@ -12,7 +12,7 @@ interface JourneyMapProps {
 
 export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchpoint, onUpdateTouchpoint }: JourneyMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [dragging, setDragging] = useState<{ id: string; offset: { x: number; y: number } } | null>(null);
+  const [dragging, setDragging] = useState<{ id: string; offset: { x: number; y: number }; hasMoved: boolean } | null>(null);
 
   const handleDoubleClick = (event: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || dragging) return;
@@ -41,7 +41,7 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
   };
 
   const handleTouchpointClick = (touchpoint: Touchpoint) => {
-    if (!dragging) {
+    if (!dragging || !dragging.hasMoved) {
       onTouchpointClick?.(touchpoint);
     }
   };
@@ -59,7 +59,8 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
       offset: {
         x: mouseX - touchpoint.xPosition,
         y: mouseY - getEmotionY(touchpoint.emotion, touchpoint.intensity)
-      }
+      },
+      hasMoved: false
     });
   };
 
@@ -72,6 +73,18 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     
     const newX = Math.min(Math.max(mouseX - dragging.offset.x, 40), 760);
     const newY = Math.min(Math.max(mouseY - dragging.offset.y, 40), 160);
+    
+    // Mark as moved if there's significant movement
+    if (!dragging.hasMoved) {
+      const touchpoint = touchpoints.find(tp => tp.id === dragging.id);
+      if (touchpoint) {
+        const deltaX = Math.abs(newX - touchpoint.xPosition);
+        const deltaY = Math.abs(newY - getEmotionY(touchpoint.emotion, touchpoint.intensity));
+        if (deltaX > 5 || deltaY > 5) {
+          setDragging({ ...dragging, hasMoved: true });
+        }
+      }
+    }
     
     const { emotion, intensity } = getEmotionFromY(newY);
     
@@ -87,6 +100,13 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
   };
 
   const handleMouseUp = () => {
+    if (dragging && !dragging.hasMoved) {
+      // Only trigger click behavior if we didn't actually drag
+      const touchpoint = touchpoints.find(tp => tp.id === dragging.id);
+      if (touchpoint) {
+        onTouchpointClick?.(touchpoint);
+      }
+    }
     setDragging(null);
   };
 
