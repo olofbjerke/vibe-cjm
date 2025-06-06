@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type CollaborativeUser } from '@/lib/collaborative-crdt';
 
 interface CollaborationPanelProps {
@@ -9,6 +9,8 @@ interface CollaborationPanelProps {
   connectionError?: string;
   shareableUrl: string | null;
   onCopyUrl: () => Promise<boolean>;
+  currentUserName?: string;
+  onChangeName?: (newName: string) => void;
 }
 
 export default function CollaborationPanel({
@@ -17,9 +19,18 @@ export default function CollaborationPanel({
   connectionError,
   shareableUrl,
   onCopyUrl,
+  currentUserName,
+  onChangeName,
 }: CollaborationPanelProps) {
   const [copySuccess, setCopySuccess] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newUserName, setNewUserName] = useState(currentUserName || '');
+
+  // Update local state when currentUserName changes
+  useEffect(() => {
+    setNewUserName(currentUserName || '');
+  }, [currentUserName]);
 
   const handleCopyUrl = async () => {
     const success = await onCopyUrl();
@@ -27,6 +38,18 @@ export default function CollaborationPanel({
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     }
+  };
+
+  const handleNameChange = () => {
+    if (newUserName.trim() && onChangeName) {
+      onChangeName(newUserName.trim());
+      setIsEditingName(false);
+    }
+  };
+
+  const handleNameCancel = () => {
+    setNewUserName(currentUserName || '');
+    setIsEditingName(false);
   };
 
   const formatLastSeen = (timestamp: number) => {
@@ -89,6 +112,58 @@ export default function CollaborationPanel({
               </p>
             )}
           </div>
+
+          {/* Current User Name */}
+          {currentUserName && onChangeName && (
+            <div className="p-4 border-b-2 border-dashed border-purple-200">
+              <h4 className="font-black text-gray-800 mb-3">👤 Your Name</h4>
+              
+              {isEditingName ? (
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={newUserName}
+                    onChange={(e) => setNewUserName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleNameChange()}
+                    className="w-full px-3 py-2 border-2 border-dashed border-blue-300 rounded-lg bg-white focus:outline-none focus:border-green-400 font-bold"
+                    placeholder="Enter your name..."
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleNameChange}
+                      disabled={!newUserName.trim()}
+                      className={`flex-1 px-3 py-2 border-2 border-dashed font-bold text-sm rounded-lg transform hover:scale-105 transition-all ${
+                        newUserName.trim()
+                          ? 'bg-green-100 border-green-300 text-green-800 hover:bg-green-200'
+                          : 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      ✓ Save
+                    </button>
+                    <button
+                      onClick={handleNameCancel}
+                      className="flex-1 bg-gray-100 border-2 border-dashed border-gray-300 text-gray-700 px-3 py-2 font-bold text-sm rounded-lg transform hover:scale-105 transition-all hover:bg-gray-200"
+                    >
+                      ✕ Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="bg-blue-100 border-2 border-dashed border-blue-300 rounded-lg p-3 flex-1 mr-3">
+                    <p className="font-bold text-blue-800">{currentUserName}</p>
+                  </div>
+                  <button
+                    onClick={() => setIsEditingName(true)}
+                    className="bg-yellow-100 hover:bg-yellow-200 border-2 border-dashed border-yellow-300 text-yellow-800 px-3 py-2 font-bold text-sm rounded-lg transform hover:scale-105 transition-all"
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Share URL */}
           {shareableUrl && (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { type TouchpointWithImage } from '@/lib/indexeddb-storage';
 import { useJourneyStorage } from '@/hooks/useJourneyStorage';
@@ -16,6 +16,21 @@ export default function CollaboratePage() {
   const [showNamePrompt, setShowNamePrompt] = useState(true);
 
   const journeyId = params.id as string;
+
+  // Load saved username on mount
+  useEffect(() => {
+    const savedUserName = localStorage.getItem('collaborationUserName');
+    if (savedUserName) {
+      setUserName(savedUserName);
+      // Auto-join with saved username
+      setShowNamePrompt(false);
+    }
+  }, []);
+
+  const handleUseDifferentName = useCallback(() => {
+    setUserName('');
+    setShowNamePrompt(true);
+  }, []);
 
   // Unified storage hook with collaboration support
   const {
@@ -46,12 +61,22 @@ export default function CollaboratePage() {
     if (!userName.trim()) return;
     
     try {
+      // Save username to localStorage for future sessions
+      localStorage.setItem('collaborationUserName', userName);
+      
       await startCollaboration(userName);
       setShowNamePrompt(false);
     } catch (error) {
       console.error('Failed to join collaboration:', error);
     }
   }, [userName, startCollaboration]);
+
+  // Auto-join with saved username when journey is loaded
+  useEffect(() => {
+    if (!showNamePrompt && userName && journey && !isCollaborativeMode) {
+      handleJoinCollaboration();
+    }
+  }, [showNamePrompt, userName, journey, isCollaborativeMode, handleJoinCollaboration]);
 
   // Handle touchpoint operations using the unified storage hook
   const handleUpdateTouchpoint = useCallback(async (updatedTouchpoint: TouchpointWithImage, imageFile?: File) => {
@@ -83,6 +108,19 @@ export default function CollaboratePage() {
       updateCursor(e.clientX, e.clientY);
     }
   }, [isCollaborativeMode, updateCursor]);
+
+  const handleChangeName = useCallback(async (newName: string) => {
+    try {
+      // Save new username to localStorage
+      localStorage.setItem('collaborationUserName', newName);
+      setUserName(newName);
+      
+      // Restart collaboration with new name
+      await startCollaboration(newName);
+    } catch (error) {
+      console.error('Failed to change name:', error);
+    }
+  }, [startCollaboration]);
 
   if (showNamePrompt) {
     return (
@@ -223,6 +261,8 @@ export default function CollaboratePage() {
           connectionError={collaborationState.connectionError}
           shareableUrl={getShareableUrl()}
           onCopyUrl={copyShareableUrl}
+          currentUserName={userName}
+          onChangeName={handleChangeName}
         />
       </div>
     </div>
