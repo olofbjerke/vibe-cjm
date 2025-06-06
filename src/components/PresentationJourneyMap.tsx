@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { type Touchpoint } from '@/lib/crdt-storage';
+import { type TouchpointWithImage } from '@/lib/indexeddb-storage';
 
 interface PresentationJourneyMapProps {
-  touchpoints: Touchpoint[];
+  touchpoints: TouchpointWithImage[];
   activeIndex: number;
   onTouchpointClick: (index: number) => void;
 }
@@ -28,7 +28,7 @@ export default function PresentationJourneyMap({ touchpoints, activeIndex, onTou
   }, []);
 
   // Calculate relative positions based on the total journey span and current SVG width
-  const getRelativeXPosition = (touchpoint: Touchpoint, index: number) => {
+  const getRelativeXPosition = (touchpoint: TouchpointWithImage, index: number) => {
     if (touchpoints.length === 1) return svgWidth / 2; // Center single point
     
     // Map the index to coordinate range (5% to 95% of width to avoid edge clipping)
@@ -54,7 +54,7 @@ export default function PresentationJourneyMap({ touchpoints, activeIndex, onTou
     }
   };
 
-  const createSmoothPath = (touchpoints: Touchpoint[]): string => {
+  const createSmoothPath = (touchpoints: TouchpointWithImage[]): string => {
     // Use relative positioning for all touchpoints
     const sortedPoints = touchpoints
       .map((tp, index) => ({ x: getRelativeXPosition(tp, index), y: getEmotionY(tp.emotion, tp.intensity) }));
@@ -195,6 +195,32 @@ export default function PresentationJourneyMap({ touchpoints, activeIndex, onTou
                   transition: 'all 0.3s ease'
                 }}
               />
+              
+              {/* Image indicator */}
+              {touchpoint.imageData && (
+                <circle
+                  cx={xPos + 15}
+                  cy={yPos - 15}
+                  r="8"
+                  fill="#fbbf24"
+                  stroke="white"
+                  strokeWidth="2"
+                  className="pointer-events-none"
+                  style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}
+                />
+              )}
+              {touchpoint.imageData && (
+                <text
+                  x={xPos + 15}
+                  y={yPos - 10}
+                  fontSize="10"
+                  textAnchor="middle"
+                  fill="white"
+                  className="pointer-events-none"
+                >
+                  📷
+                </text>
+              )}
               
               {/* Step number */}
               <text

@@ -2,24 +2,33 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { CRDTJourneyStorage, type JourneyMap as JourneyMapType } from '@/lib/crdt-storage';
+import { IndexedDBJourneyStorage, type JourneyMapWithImages, type TouchpointWithImage } from '@/lib/indexeddb-storage';
 import PresentationJourneyMap from '@/components/PresentationJourneyMap';
 
 export default function PresentPage() {
   const params = useParams();
   const router = useRouter();
-  const [journey, setJourney] = useState<JourneyMapType | null>(null);
+  const [journey, setJourney] = useState<JourneyMapWithImages | null>(null);
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
   useEffect(() => {
     const journeyId = params.id as string;
     if (journeyId) {
-      const loadedJourney = CRDTJourneyStorage.getJourney(journeyId);
-      if (loadedJourney) {
-        setJourney(loadedJourney);
-      } else {
-        router.push('/');
-      }
+      const loadJourney = async () => {
+        try {
+          await IndexedDBJourneyStorage.init();
+          const loadedJourney = await IndexedDBJourneyStorage.getJourney(journeyId);
+          if (loadedJourney) {
+            setJourney(loadedJourney);
+          } else {
+            router.push('/');
+          }
+        } catch (error) {
+          console.error('Error loading journey for presentation:', error);
+          router.push('/');
+        }
+      };
+      loadJourney();
     }
   }, [params.id, router]);
 
@@ -34,7 +43,7 @@ export default function PresentPage() {
   }
 
   // Get touchpoints array and sort by xPosition to maintain spatial order from the editing canvas
-  const touchpointsArray = CRDTJourneyStorage.getTouchpointsArray(journey);
+  const touchpointsArray = IndexedDBJourneyStorage.getTouchpointsArray(journey);
   const sortedTouchpoints = [...touchpointsArray].sort((a, b) => a.xPosition - b.xPosition);
 
   const handleTouchpointClick = (index: number) => {
@@ -130,6 +139,29 @@ export default function PresentPage() {
                     </div>
                   </div>
                 </div>
+                
+                {/* Image display */}
+                {touchpoint.imageData && (
+                  <div className="mb-6">
+                    <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-dashed border-purple-300 rounded-lg p-6 transform rotate-1" style={{ boxShadow: '4px 4px 0 #a855f7' }}>
+                      <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-4 transform -rotate-1">
+                        <img
+                          src={touchpoint.imageData}
+                          alt={touchpoint.imageName || 'Touchpoint image'}
+                          className="max-w-full max-h-80 object-contain rounded border mx-auto"
+                          style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))' }}
+                        />
+                        {touchpoint.imageName && (
+                          <div className="mt-3 text-center">
+                            <div className="bg-yellow-200 border-2 border-dashed border-yellow-400 rounded px-3 py-1 inline-block">
+                              <p className="text-xs text-gray-700 font-bold">📸 {touchpoint.imageName}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6">
                   <p className="text-gray-800 text-lg leading-relaxed font-medium">
