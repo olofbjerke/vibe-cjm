@@ -216,7 +216,7 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
         
         {/* Main journey path */}
         <path
-          d="M 40 100 Q 200 90 400 100 Q 600 110 760 100"
+          d="M 40 100 L 760 100"
           fill="none"
           stroke="#3b82f6"
           strokeWidth="3"
