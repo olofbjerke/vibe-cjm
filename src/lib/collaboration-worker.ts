@@ -1,9 +1,7 @@
-// WebSocket server for collaborative editing
-// This will run on Cloudflare Workers with Durable Objects
+// Cloudflare Workers Durable Object for collaboration
+import { type Operation } from './crdt-storage';
 
-import type { Operation } from './crdt-storage';
-
-export interface CollaborativeOperation {
+interface CollaborativeOperation {
   id: string;
   journeyId: string;
   operation: Operation;
@@ -12,7 +10,7 @@ export interface CollaborativeOperation {
   userName?: string;
 }
 
-export interface UserPresence {
+interface UserPresence {
   userId: string;
   userName: string;
   cursor?: { x: number; y: number };
@@ -20,30 +18,26 @@ export interface UserPresence {
   color: string;
 }
 
-export interface CollaborationMessage {
+interface CollaborationMessage {
   type: 'operation' | 'presence' | 'sync_request' | 'sync_response' | 'user_joined' | 'user_left';
   data: unknown;
   timestamp: number;
   userId: string;
 }
 
-// Durable Object for managing collaboration state
 export class CollaborationRoom {
   private state: DurableObjectState;
-  private env: { COLLABORATION_ROOM: DurableObjectNamespace };
   private sessions: Map<WebSocket, { userId: string; userName: string }> = new Map();
   private operations: CollaborativeOperation[] = [];
   private userPresence: Map<string, UserPresence> = new Map();
 
-  constructor(state: DurableObjectState, env: { COLLABORATION_ROOM: DurableObjectNamespace }) {
+  constructor(state: DurableObjectState) {
     this.state = state;
-    this.env = env;
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const journeyId = url.pathname.split('/').pop();
-
+    
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected WebSocket', { status: 400 });
     }
@@ -51,7 +45,11 @@ export class CollaborationRoom {
     const webSocketPair = new WebSocketPair();
     const [client, server] = Object.values(webSocketPair);
 
-    await this.handleWebSocket(server, journeyId);
+    // Extract user info from URL
+    const userName = url.searchParams.get('userName') || `User ${Math.floor(Math.random() * 1000)}`;
+    const userId = url.searchParams.get('userId') || this.generateUserId();
+
+    await this.handleWebSocket(server, userId, userName);
 
     return new Response(null, {
       status: 101,
@@ -59,16 +57,10 @@ export class CollaborationRoom {
     });
   }
 
-  private async handleWebSocket(websocket: WebSocket, journeyId: string | undefined) {
+  private async handleWebSocket(websocket: WebSocket, userId: string, userName: string) {
     websocket.accept();
 
-    const userId = this.generateUserId();
-    const userName = `User ${Math.floor(Math.random() * 1000)}`;
     const userColor = this.generateUserColor();
-
-    // Store journeyId in session for future use
-    console.log('WebSocket connected for journey:', journeyId);
-
     this.sessions.set(websocket, { userId, userName });
 
     // Add user presence
@@ -240,24 +232,3 @@ export class CollaborationRoom {
     return colors[Math.floor(Math.random() * colors.length)];
   }
 }
-
-// Worker handler
-const worker = {
-  async fetch(request: Request, env: { COLLABORATION_ROOM: DurableObjectNamespace }): Promise<Response> {
-    const url = new URL(request.url);
-    
-    if (url.pathname.startsWith('/collaborate/')) {
-      const journeyId = url.pathname.split('/').pop();
-      if (!journeyId) {
-        return new Response('Journey ID required', { status: 400 });
-      }
-      const durableObjectId = env.COLLABORATION_ROOM.idFromName(journeyId);
-      const durableObject = env.COLLABORATION_ROOM.get(durableObjectId);
-      return durableObject.fetch(request);
-    }
-
-    return new Response('Not found', { status: 404 });
-  },
-};
-
-export default worker;

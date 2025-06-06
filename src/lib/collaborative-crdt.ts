@@ -105,13 +105,14 @@ export class CollaborativeCRDT {
 
     // Send to server if connected
     if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-      console.log('Sending operation to server');
+      console.log('Sending operation to server with current state');
       this.sendMessage({
         type: 'operation',
         data: {
           journeyId: this.journeyId,
           operation,
           operationId: operation.operationId,
+          currentState: journey, // Send the current state
         },
         timestamp: Date.now(),
         userId: this.userId,
@@ -141,36 +142,43 @@ export class CollaborativeCRDT {
   private handleMessage(message: { type: string; data: unknown; timestamp: number; userId: string }): void {
     switch (message.type) {
       case 'operation':
-        this.handleRemoteOperation(message.data);
+        this.handleRemoteOperation(message.data as { operation: Operation; userId: string });
         break;
       case 'presence':
-        this.handlePresenceUpdate(message.data);
+        this.handlePresenceUpdate(message.data as { userId: string; cursor: { x: number; y: number } });
         break;
       case 'sync_response':
-        this.handleSyncResponse(message.data);
+        this.handleSyncResponse(message.data as { operations?: { operation: Operation; userId: string }[]; users?: CollaborativeUser[]; currentState?: JourneyMap });
         break;
       case 'user_joined':
-        this.handleUserJoined(message.data);
+        this.handleUserJoined(message.data as { userId: string; userName: string; color: string });
         break;
       case 'user_left':
-        this.handleUserLeft(message.data);
+        this.handleUserLeft(message.data as { userId: string });
         break;
     }
   }
 
   private handleRemoteOperation(operationData: { operation: Operation; userId: string }): void {
+    console.log('Received remote operation:', operationData);
+    
     // Don't apply our own operations
-    if (operationData.userId === this.userId) return;
+    if (operationData.userId === this.userId) {
+      console.log('Skipping own operation');
+      return;
+    }
 
     try {
       // Apply the remote operation locally
+      console.log('Applying remote operation to local storage');
       const journey = CRDTJourneyStorage.executeOperation(this.journeyId, operationData.operation);
+      console.log('Remote operation result:', journey);
       
       if (journey && this.onJourneyUpdate) {
         this.onJourneyUpdate(journey);
       }
     } catch (error) {
-      console.error('Error applying remote operation:', error);
+      console.error('Error applying remote operation:', error, operationData);
     }
   }
 
@@ -183,25 +191,48 @@ export class CollaborativeCRDT {
     }
   }
 
-  private handleSyncResponse(data: { operations?: { operation: Operation; userId: string }[]; users?: CollaborativeUser[] }): void {
+  private handleSyncResponse(data: { operations?: { operation: Operation; userId: string }[]; users?: CollaborativeUser[]; currentState?: JourneyMap }): void {
+    console.log('Received sync response:', data);
+    
+    // If we have a current state from server, apply it first
+    if (data.currentState) {
+      console.log('Applying current state from server:', data.currentState);
+      try {
+        // Store the current state directly
+        CRDTJourneyStorage.setJourney(this.journeyId, data.currentState);
+        
+        if (this.onJourneyUpdate) {
+          this.onJourneyUpdate(data.currentState);
+        }
+      } catch (error) {
+        console.error('Error applying current state:', error);
+      }
+    }
+    
     // Apply all operations from server
     if (data.operations && Array.isArray(data.operations)) {
+      console.log(`Applying ${data.operations.length} operations from server`);
+      
       for (const opData of data.operations) {
-        // Skip operations that are already applied locally
-        if (opData.userId !== this.userId) {
-          try {
-            CRDTJourneyStorage.executeOperation(this.journeyId, opData.operation);
-          } catch (error) {
-            console.error('Error applying sync operation:', error);
-          }
+        console.log('Applying operation:', opData);
+        
+        // Apply all operations, including our own (in case we missed some)
+        try {
+          CRDTJourneyStorage.executeOperation(this.journeyId, opData.operation);
+        } catch (error) {
+          console.error('Error applying sync operation:', error, opData);
         }
       }
 
-      // Update journey
+      // Update journey after applying operations
       const journey = CRDTJourneyStorage.getJourney(this.journeyId);
+      console.log('Journey after sync operations:', journey);
+      
       if (journey && this.onJourneyUpdate) {
         this.onJourneyUpdate(journey);
       }
+    } else {
+      console.log('No operations in sync response');
     }
 
     // Update user list
@@ -244,12 +275,16 @@ export class CollaborativeCRDT {
 
   private flushPendingOperations(): void {
     for (const operation of this.pendingOperations) {
+      // Get current state for each operation
+      const currentJourney = CRDTJourneyStorage.getJourney(this.journeyId);
+      
       this.sendMessage({
         type: 'operation',
         data: {
           journeyId: this.journeyId,
           operation,
           operationId: operation.operationId,
+          currentState: currentJourney,
         },
         timestamp: Date.now(),
         userId: this.userId,
@@ -301,16 +336,29 @@ export class CollaborativeCRDT {
   }
 
   private getWebSocketUrl(): string {
-    // In development, use local WebSocket server
-    // In production, use Cloudflare Workers WebSocket endpoint
-    const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
+    // Detect environment and construct appropriate WebSocket URL
+    let baseUrl: string;
     
-    const baseUrl = isDevelopment 
-      ? `ws://localhost:8787/collaborate/${this.journeyId}`
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/collaborate/${this.journeyId}`;
+    if (typeof window !== 'undefined') {
+      const currentUrl = new URL(window.location.href);
+      
+      if (currentUrl.hostname === 'localhost' || currentUrl.hostname === '127.0.0.1') {
+        // Development environment - use local WebSocket server
+        baseUrl = `ws://localhost:8787/collaborate/${this.journeyId}`;
+      } else {
+        // Production environment - use WebSocket upgrade on same domain
+        const protocol = currentUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+        baseUrl = `${protocol}//${currentUrl.host}/api/collaborate/${this.journeyId}`;
+      }
+    } else {
+      // Fallback for SSR or other environments
+      baseUrl = `ws://localhost:8787/collaborate/${this.journeyId}`;
+    }
     
     // Add username as query parameter
-    return `${baseUrl}?userName=${encodeURIComponent(this.userName)}&userId=${encodeURIComponent(this.userId)}`;
+    const url = `${baseUrl}?userName=${encodeURIComponent(this.userName)}&userId=${encodeURIComponent(this.userId)}`;
+    console.log('WebSocket URL:', url);
+    return url;
   }
 
   private generateUserId(): string {

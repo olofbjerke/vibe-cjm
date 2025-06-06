@@ -333,6 +333,26 @@ export class CRDTJourneyStorage {
     return journeys.find(j => j.id === id) || null;
   }
 
+  // Set a journey directly (for collaborative sync)
+  static setJourney(id: string, journey: JourneyMap): void {
+    const journeys = this.getAllJourneys();
+    const journeyIndex = journeys.findIndex(j => j.id === id);
+    
+    if (journeyIndex === -1) {
+      // Journey doesn't exist, add it
+      journeys.push(journey);
+    } else {
+      // Journey exists, replace it
+      journeys[journeyIndex] = journey;
+    }
+    
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(journeys));
+    } catch (error) {
+      console.error('Error setting journey:', error);
+    }
+  }
+
   // Get touchpoints as array (excluding deleted ones)
   static getTouchpointsArray(journey: JourneyMap): Touchpoint[] {
     return Object.values(journey.touchpoints).filter(tp => !tp.deletedAt);

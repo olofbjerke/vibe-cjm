@@ -16,6 +16,7 @@ class CollaborationRoom {
     this.clients = new Map(); // websocket -> user info
     this.operations = [];
     this.userPresence = new Map();
+    this.currentState = null; // Store the current journey state
   }
 
   addClient(ws, userId, userName) {
@@ -29,12 +30,13 @@ class CollaborationRoom {
       lastSeen: Date.now(),
     });
 
-    // Send initial sync
+    // Send initial sync with current state and operations
     this.sendToClient(ws, {
       type: 'sync_response',
       data: {
         operations: this.operations,
         users: Array.from(this.userPresence.values()),
+        currentState: this.currentState,
       },
       timestamp: Date.now(),
       userId,
@@ -113,7 +115,13 @@ class CollaborationRoom {
       this.operations = this.operations.slice(-1000);
     }
 
-    console.log(`Operation from ${client.userName}: ${operation.operation.type}`);
+    // Update current state if provided
+    if (message.data.currentState) {
+      this.currentState = message.data.currentState;
+      console.log(`Updated room state from ${client.userName}`);
+    }
+
+    console.log(`Operation from ${client.userName}: ${operation.operation.type}, total operations: ${this.operations.length}`);
 
     // Broadcast to all other clients
     this.broadcastToOthers(ws, {
@@ -122,6 +130,8 @@ class CollaborationRoom {
       timestamp: Date.now(),
       userId: client.userId,
     });
+    
+    console.log(`Broadcasting operation to ${this.clients.size - 1} other clients`);
   }
 
   handlePresence(ws, message) {
@@ -150,11 +160,14 @@ class CollaborationRoom {
     const client = this.clients.get(ws);
     if (!client) return;
 
+    console.log(`Sync request from ${client.userName}, sending ${this.operations.length} operations and current state:`, this.currentState ? 'available' : 'none');
+
     this.sendToClient(ws, {
       type: 'sync_response',
       data: {
         operations: this.operations,
         users: Array.from(this.userPresence.values()),
+        currentState: this.currentState,
       },
       timestamp: Date.now(),
       userId: client.userId,
