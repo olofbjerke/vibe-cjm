@@ -13,6 +13,7 @@ interface JourneyMapProps {
 export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchpoint, onUpdateTouchpoint }: JourneyMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragging, setDragging] = useState<{ id: string; offset: { x: number; y: number }; hasMoved: boolean } | null>(null);
+  const lastUpdateRef = useRef<number>(0);
 
   const handleDoubleClick = (event: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || dragging) return;
@@ -67,6 +68,11 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
     if (!dragging || !svgRef.current) return;
 
+    // Throttle updates to improve performance
+    const now = Date.now();
+    if (now - lastUpdateRef.current < 16) return; // ~60fps
+    lastUpdateRef.current = now;
+
     const rect = svgRef.current.getBoundingClientRect();
     const mouseX = ((event.clientX - rect.left) / rect.width) * 800;
     const mouseY = ((event.clientY - rect.top) / rect.height) * 200;
@@ -74,28 +80,29 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     const newX = Math.min(Math.max(mouseX - dragging.offset.x, 40), 760);
     const newY = Math.min(Math.max(mouseY - dragging.offset.y, 40), 160);
     
-    // Mark as moved if there's significant movement
-    if (!dragging.hasMoved) {
-      const touchpoint = touchpoints.find(tp => tp.id === dragging.id);
-      if (touchpoint) {
+    const touchpoint = touchpoints.find(tp => tp.id === dragging.id);
+    if (touchpoint) {
+      // Mark as moved if there's significant movement (only check once)
+      if (!dragging.hasMoved) {
         const deltaX = Math.abs(newX - touchpoint.xPosition);
         const deltaY = Math.abs(newY - getEmotionY(touchpoint.emotion, touchpoint.intensity));
-        if (deltaX > 5 || deltaY > 5) {
+        if (deltaX > 3 || deltaY > 3) {
           setDragging({ ...dragging, hasMoved: true });
         }
       }
-    }
-    
-    const { emotion, intensity } = getEmotionFromY(newY);
-    
-    const touchpoint = touchpoints.find(tp => tp.id === dragging.id);
-    if (touchpoint && onUpdateTouchpoint) {
-      onUpdateTouchpoint({
-        ...touchpoint,
-        xPosition: newX,
-        emotion,
-        intensity
-      });
+      
+      const { emotion, intensity } = getEmotionFromY(newY);
+      
+      // Only update if position actually changed to reduce re-renders
+      if (Math.abs(newX - touchpoint.xPosition) > 1 || 
+          Math.abs(newY - getEmotionY(touchpoint.emotion, touchpoint.intensity)) > 1) {
+        onUpdateTouchpoint?.({
+          ...touchpoint,
+          xPosition: newX,
+          emotion,
+          intensity
+        });
+      }
     }
   };
 
@@ -287,14 +294,17 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
             <circle
               cx={touchpoint.xPosition}
               cy={getEmotionY(touchpoint.emotion, touchpoint.intensity)}
-              r="12"
+              r={dragging?.id === touchpoint.id ? "14" : "12"}
               fill={getEmotionColor(touchpoint.emotion)}
               stroke="white"
               strokeWidth="3"
-              className={`${dragging?.id === touchpoint.id ? 'cursor-grabbing' : 'cursor-grab'} hover:r-15 transition-all drop-shadow-lg`}
+              className={`${dragging?.id === touchpoint.id ? 'cursor-grabbing' : 'cursor-grab'}`}
               onClick={() => handleTouchpointClick(touchpoint)}
               onMouseDown={(e) => handleMouseDown(e, touchpoint)}
-              style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}
+              style={{ 
+                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
+                transition: dragging?.id === touchpoint.id ? 'none' : 'r 0.2s ease'
+              }}
             />
             
             {/* Touchpoint label */}
