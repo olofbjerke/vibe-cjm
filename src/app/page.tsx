@@ -150,59 +150,71 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-green-50 to-blue-50" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b-4 border-dashed border-orange-300" style={{ boxShadow: '0 8px 0 #fed7aa' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-6 gap-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-8 gap-6">
             <div className="flex-1">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Customer Journey Mapper</h1>
-              <p className="text-gray-600 mt-1 text-sm sm:text-base">Create interactive journey maps to understand your customers</p>
-              <div className="mt-3">
+              <h1 className="text-2xl sm:text-4xl font-black text-gray-800 transform -rotate-1" style={{ textShadow: '3px 3px 0 #fbbf24' }}>
+                🗺️ Journey Mapper
+              </h1>
+              <div className="bg-yellow-200 border-2 border-dashed border-yellow-400 rounded-lg p-3 mt-3 transform rotate-1" style={{ boxShadow: '4px 4px 0 #fbbf24' }}>
+                <p className="text-gray-800 text-sm sm:text-base font-bold">
+                  Hey there! 👋 Let&apos;s map out your customer&apos;s wild adventure!
+                </p>
+              </div>
+              <div className="mt-4">
                 <input
                   type="text"
                   value={journeyTitle}
                   onChange={(e) => setJourneyTitle(e.target.value)}
-                  className="text-lg font-medium border-none bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
-                  placeholder="Journey Title"
+                  className="text-lg font-black border-3 border-dashed border-blue-400 bg-white focus:outline-none focus:border-green-400 rounded-lg px-4 py-3 transform -rotate-1 hover:rotate-0 transition-all"
+                  style={{ boxShadow: '4px 4px 0 #60a5fa' }}
+                  placeholder="What's this journey called?"
                 />
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               <button 
                 onClick={handleNewJourney}
-                className="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap"
+                className="bg-green-400 hover:bg-green-500 text-white px-5 py-3 border-3 border-green-600 font-black text-sm rounded-lg transform hover:-rotate-2 transition-all"
+                style={{ boxShadow: '4px 4px 0 #16a34a' }}
               >
-                New
+                ✨ Fresh Start
               </button>
               <button 
                 onClick={() => setShowJourneyList(!showJourneyList)}
-                className="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 transition-colors text-sm whitespace-nowrap"
+                className="bg-blue-400 hover:bg-blue-500 text-white px-5 py-3 border-3 border-blue-600 font-black text-sm rounded-lg transform hover:rotate-2 transition-all"
+                style={{ boxShadow: '4px 4px 0 #2563eb' }}
               >
-                Load ({savedJourneys.length})
+                📚 Library ({savedJourneys.length})
               </button>
               <button 
                 onClick={handleExportJourney}
-                className="bg-purple-600 text-white px-3 py-2 rounded-md hover:bg-purple-700 transition-colors text-sm whitespace-nowrap"
+                className="bg-purple-400 hover:bg-purple-500 text-white px-5 py-3 border-3 border-purple-600 font-black text-sm rounded-lg transform hover:-rotate-1 transition-all"
+                style={{ boxShadow: '4px 4px 0 #9333ea' }}
               >
-                Export
+                📦 Package It
               </button>
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-orange-600 text-white px-3 py-2 rounded-md hover:bg-orange-700 transition-colors text-sm whitespace-nowrap"
+                className="bg-orange-400 hover:bg-orange-500 text-white px-5 py-3 border-3 border-orange-600 font-black text-sm rounded-lg transform hover:rotate-1 transition-all"
+                style={{ boxShadow: '4px 4px 0 #ea580c' }}
               >
-                Import
+                📮 Bring In
               </button>
               <button 
                 onClick={handleSaveJourney}
                 disabled={isSaving}
-                className={`px-4 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
+                className={`px-6 py-3 border-3 font-black text-sm rounded-lg transform hover:scale-105 transition-all ${
                   isSaving 
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-gray-300 border-gray-400 text-gray-600 cursor-not-allowed' 
+                    : 'bg-yellow-400 hover:bg-yellow-500 border-yellow-600 text-gray-800 hover:-rotate-1'
                 }`}
+                style={{ boxShadow: isSaving ? '2px 2px 0 #9ca3af' : '4px 4px 0 #ca8a04' }}
               >
-                {isSaving ? 'Saving...' : 'Save'}
+                {isSaving ? '💾 Saving...' : '💾 Keep It Safe'}
               </button>
             </div>
           </div>
@@ -220,32 +232,52 @@ export default function Home() {
 
       {/* Journey List Dropdown */}
       {showJourneyList && (
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Saved Journeys</h3>
+        <div className="bg-white border-b-4 border-dashed border-green-300" style={{ boxShadow: '0 8px 0 #86efac' }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-green-200 border-2 border-dashed border-green-400 rounded-lg p-4 mb-6 transform -rotate-1" style={{ boxShadow: '4px 4px 0 #22c55e' }}>
+              <h3 className="text-xl font-black text-gray-800 flex items-center">
+                📚 Your Journey Library
+              </h3>
+              <p className="text-gray-700 font-bold text-sm mt-1">All your amazing customer adventures live here!</p>
+            </div>
             {savedJourneys.length === 0 ? (
-              <p className="text-gray-500 text-sm">No saved journeys found.</p>
+              <div className="text-center py-12">
+                <div className="bg-yellow-200 border-2 border-dashed border-yellow-400 rounded-lg p-8 transform rotate-2" style={{ boxShadow: '6px 6px 0 #fbbf24' }}>
+                  <p className="text-gray-800 text-xl font-black">🌟 Nothing here yet!</p>
+                  <p className="text-gray-700 font-bold text-sm mt-2">Start creating your first journey above! It&apos;ll be awesome! 🚀</p>
+                </div>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {savedJourneys.map((journey) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {savedJourneys.map((journey, index) => (
                   <div
                     key={journey.id}
-                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    className={`p-5 border-3 border-dashed rounded-lg cursor-pointer transition-all transform hover:-rotate-1 hover:scale-105 ${
                       currentJourneyId === journey.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'border-blue-400 bg-blue-100'
+                        : 'border-gray-400 bg-white hover:border-orange-400 hover:bg-orange-50'
                     }`}
+                    style={{ 
+                      boxShadow: currentJourneyId === journey.id 
+                        ? '6px 6px 0 #60a5fa' 
+                        : '4px 4px 0 #9ca3af',
+                      transform: `rotate(${(index % 3 - 1) * 2}deg)`
+                    }}
                     onClick={() => {
                       loadJourney(journey);
                       setShowJourneyList(false);
                     }}
                   >
-                    <h4 className="font-medium text-sm text-gray-900 truncate">{journey.title}</h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {journey.touchpoints.length} touchpoints • {new Date(journey.updatedAt).toLocaleDateString()}
-                    </p>
+                    <h4 className="font-black text-base text-gray-800 truncate mb-3">{journey.title}</h4>
+                    <div className="bg-white border-2 border-dashed border-gray-300 rounded px-3 py-2 mb-3">
+                      <p className="text-xs text-gray-700 font-bold">
+                        🎯 {journey.touchpoints.length} stops • 📅 {new Date(journey.updatedAt).toLocaleDateString()}
+                      </p>
+                    </div>
                     {journey.description && (
-                      <p className="text-xs text-gray-600 mt-1 truncate">{journey.description}</p>
+                      <p className="text-xs text-gray-600 font-bold truncate bg-gray-100 border border-dashed border-gray-300 rounded px-2 py-1">
+                        💭 {journey.description}
+                      </p>
                     )}
                   </div>
                 ))}
@@ -276,11 +308,16 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-gray-500 text-sm">
-            A vibe coding experiment by Olof Bjerke
-          </p>
+      <footer className="bg-white border-t-4 border-dashed border-pink-300 mt-16" style={{ boxShadow: '0 -8px 0 #f9a8d4' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-pink-200 border-2 border-dashed border-pink-400 rounded-lg p-4 transform rotate-1" style={{ boxShadow: '4px 4px 0 #ec4899' }}>
+            <p className="text-center text-gray-800 font-black">
+              🎉 A vibe coding experiment by Olof Bjerke 🎉
+            </p>
+            <p className="text-center text-gray-700 text-xs font-bold mt-1">
+              Made with ☕ and lots of fun!
+            </p>
+          </div>
         </div>
       </footer>
     </div>

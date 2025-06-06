@@ -181,15 +181,22 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
   };
 
   return (
-    <div className="w-full bg-white rounded-lg border border-gray-200 p-6">
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 mb-1">Customer Journey Map</h2>
-        <p className="text-sm text-gray-600">Double-click anywhere to add touchpoints • Drag to move and change emotion</p>
+    <div className="w-full bg-white border-3 border-dashed border-blue-400 rounded-lg p-8" style={{ boxShadow: '8px 8px 0 #60a5fa' }}>
+      <div className="mb-8">
+        <div className="bg-blue-200 border-2 border-dashed border-blue-400 rounded-lg p-4 transform rotate-2" style={{ boxShadow: '4px 4px 0 #3b82f6' }}>
+          <h2 className="text-2xl font-black text-gray-800 mb-1 flex items-center">
+            🎨 Your Journey Canvas
+          </h2>
+          <p className="text-sm text-gray-700 font-bold">
+            Double-click anywhere to plop down a touchpoint! Then drag &apos;em around! 🎯
+          </p>
+        </div>
       </div>
       
       <svg
         ref={svgRef}
-        className={`w-full h-48 sm:h-64 ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+        className={`w-full h-48 sm:h-64 rounded-lg bg-yellow-50 border-2 border-dashed border-yellow-300 ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+        style={{ boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}
         viewBox="0 0 800 200"
         preserveAspectRatio="xMidYMid meet"
         onDoubleClick={handleDoubleClick}
@@ -197,11 +204,16 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* Background grid */}
+        {/* Background grid and gradients */}
         <defs>
           <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#f3f4f6" strokeWidth="0.5"/>
+            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#e9d5ff" strokeWidth="0.5"/>
           </pattern>
+          <linearGradient id="emotionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#10b981', stopOpacity: 1 }} />
+            <stop offset="50%" style={{ stopColor: '#f59e0b', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#ef4444', stopOpacity: 1 }} />
+          </linearGradient>
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
         
@@ -218,9 +230,10 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
         <path
           d="M 40 100 L 760 100"
           fill="none"
-          stroke="#3b82f6"
-          strokeWidth="3"
-          strokeDasharray="8,4"
+          stroke="#8b5cf6"
+          strokeWidth="4"
+          strokeDasharray="12,6"
+          strokeLinecap="round"
         />
         
         {/* Touchpoint connecting line */}
@@ -228,10 +241,11 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
           <path
             d={createSmoothPath(touchpoints)}
             fill="none"
-            stroke="#10b981"
-            strokeWidth="4"
-            strokeDasharray="8,8"
-            opacity="0.8"
+            stroke="url(#emotionGradient)"
+            strokeWidth="5"
+            strokeDasharray="10,5"
+            strokeLinecap="round"
+            opacity="0.9"
           />
         )}
         
@@ -253,13 +267,14 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
             <circle
               cx={touchpoint.xPosition}
               cy={getEmotionY(touchpoint.emotion, touchpoint.intensity)}
-              r="10"
+              r="12"
               fill={getEmotionColor(touchpoint.emotion)}
               stroke="white"
-              strokeWidth="2"
-              className={`${dragging?.id === touchpoint.id ? 'cursor-grabbing' : 'cursor-grab'} hover:r-12 transition-all`}
+              strokeWidth="3"
+              className={`${dragging?.id === touchpoint.id ? 'cursor-grabbing' : 'cursor-grab'} hover:r-15 transition-all drop-shadow-lg`}
               onClick={() => handleTouchpointClick(touchpoint)}
               onMouseDown={(e) => handleMouseDown(e, touchpoint)}
+              style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}
             />
             
             {/* Touchpoint label */}
