@@ -279,7 +279,7 @@ export default function Home() {
       <footer className="bg-white border-t border-gray-200 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-gray-500 text-sm">
-            Built with Next.js, React, and Tailwind CSS
+            A vibe coding experiment by Olof Bjerke
           </p>
         </div>
       </footer>
