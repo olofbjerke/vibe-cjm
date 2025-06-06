@@ -165,7 +165,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-8 gap-6">
             <div className="flex-1">
               <h1 className="text-2xl sm:text-4xl font-black text-gray-800 transform -rotate-1" style={{ textShadow: '3px 3px 0 #fbbf24' }}>
-                🗺️ Journey Mapper
+                🛣️ Bumpy Road
               </h1>
               <div className="bg-yellow-200 border-2 border-dashed border-yellow-400 rounded-lg p-3 mt-3 transform rotate-1" style={{ boxShadow: '4px 4px 0 #fbbf24' }}>
                 <p className="text-gray-800 text-sm sm:text-base font-bold">
