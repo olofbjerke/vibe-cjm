@@ -8,6 +8,9 @@ export interface Touchpoint {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string; // For soft deletion
+  imageData?: string; // Base64 encoded image data
+  imageName?: string; // Original filename
+  imageType?: string; // MIME type
 }
 
 export interface JourneyMap {

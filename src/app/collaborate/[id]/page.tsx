@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { CRDTJourneyStorage, type Touchpoint, type JourneyMap as JourneyMapType } from '@/lib/crdt-storage';
-import { useCollaboration } from '@/hooks/useCollaboration';
+import { type TouchpointWithImage } from '@/lib/indexeddb-storage';
+import { useJourneyStorage } from '@/hooks/useJourneyStorage';
 import JourneyMap from '@/components/JourneyMap';
 import TouchpointDetails from '@/components/TouchpointDetails';
 import CollaborationPanel from '@/components/CollaborationPanel';
@@ -11,151 +11,65 @@ import CollaborationPanel from '@/components/CollaborationPanel';
 export default function CollaboratePage() {
   const params = useParams();
   const router = useRouter();
-  const [journey, setJourney] = useState<JourneyMapType | null>(null);
-  const [selectedTouchpoint, setSelectedTouchpoint] = useState<Touchpoint | undefined>();
+  const [selectedTouchpoint, setSelectedTouchpoint] = useState<TouchpointWithImage | undefined>();
   const [userName, setUserName] = useState<string>('');
-  const [, setHasJoinedCollaboration] = useState(false);
   const [showNamePrompt, setShowNamePrompt] = useState(true);
 
   const journeyId = params.id as string;
 
-  // Collaboration hook
+  // Unified storage hook with collaboration support
   const {
+    journey,
+    touchpoints,
+    loading,
+    error,
+    createTouchpoint,
+    updateTouchpoint,
+    deleteTouchpoint,
     isCollaborativeMode,
-    collaborationState,
     isConnected,
     users,
     startCollaboration,
-    // stopCollaboration,
-    executeCollaborativeOperation,
     updateCursor,
     getShareableUrl,
     copyShareableUrl,
-  } = useCollaboration(journeyId, {
-    onJourneyUpdate: setJourney,
+    collaborationState,
+  } = useJourneyStorage({
+    journeyId,
+    userName,
   });
 
-  // Load or create journey
-  useEffect(() => {
-    if (journeyId) {
-      let loadedJourney = CRDTJourneyStorage.getJourney(journeyId);
-      
-      if (!loadedJourney) {
-        // Create a new collaborative journey with the specific ID
-        const tempJourney = CRDTJourneyStorage.createJourney(
-          'Collaborative Journey',
-          'Real-time collaborative customer journey mapping'
-        );
-        
-        // Manually update the ID and save it with the correct ID
-        const newJourney = {
-          ...tempJourney,
-          id: journeyId
-        };
-        
-        // Save it to localStorage with the correct ID
-        const allJourneys = CRDTJourneyStorage.getAllJourneys();
-        const updatedJourneys = allJourneys.map(j => j.id === tempJourney.id ? newJourney : j);
-        localStorage.setItem('customerJourneyMaps', JSON.stringify(updatedJourneys));
-        
-        loadedJourney = newJourney;
-      }
-      
-      console.log('Loaded journey:', loadedJourney);
-      setJourney(loadedJourney);
-    }
-  }, [journeyId]);
+  // Journey creation is now handled by the useJourneyStorage hook
 
   // Join collaboration when name is provided
   const handleJoinCollaboration = useCallback(async () => {
     if (!userName.trim()) return;
     
-    console.log('Joining collaboration with name:', userName);
-    
     try {
       await startCollaboration(userName);
-      console.log('Collaboration started successfully');
-      setHasJoinedCollaboration(true);
       setShowNamePrompt(false);
     } catch (error) {
       console.error('Failed to join collaboration:', error);
     }
   }, [userName, startCollaboration]);
 
-  // Handle operations in collaborative mode
-  const handleUpdateTouchpoint = useCallback(async (updatedTouchpoint: Touchpoint) => {
-    if (!journey) return;
-    
-    console.log('Updating touchpoint:', updatedTouchpoint, 'Collaborative mode:', isCollaborativeMode);
-    
-    if (isCollaborativeMode) {
-      const result = await executeCollaborativeOperation({
-        type: 'UPDATE_TOUCHPOINT',
-        touchpointId: updatedTouchpoint.id,
-        changes: updatedTouchpoint,
-        timestamp: Date.now(),
-        operationId: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      });
-      console.log('Collaborative operation result:', result);
-    } else {
-      const updatedJourney = CRDTJourneyStorage.updateTouchpoint(
-        journey.id,
-        updatedTouchpoint.id,
-        updatedTouchpoint
-      );
-      if (updatedJourney) setJourney(updatedJourney);
-    }
-  }, [journey, isCollaborativeMode, executeCollaborativeOperation]);
+  // Handle touchpoint operations using the unified storage hook
+  const handleUpdateTouchpoint = useCallback(async (updatedTouchpoint: TouchpointWithImage, imageFile?: File) => {
+    await updateTouchpoint(updatedTouchpoint, imageFile);
+  }, [updateTouchpoint]);
 
   const handleDeleteTouchpoint = useCallback(async (id: string) => {
-    if (!journey) return;
-    
-    if (isCollaborativeMode) {
-      await executeCollaborativeOperation({
-        type: 'DELETE_TOUCHPOINT',
-        touchpointId: id,
-        timestamp: Date.now(),
-        operationId: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      });
-    } else {
-      const updatedJourney = CRDTJourneyStorage.deleteTouchpoint(journey.id, id);
-      if (updatedJourney) {
-        setJourney(updatedJourney);
-        if (selectedTouchpoint?.id === id) {
-          setSelectedTouchpoint(undefined);
-        }
-      }
+    await deleteTouchpoint(id);
+    if (selectedTouchpoint?.id === id) {
+      setSelectedTouchpoint(undefined);
     }
-  }, [journey, isCollaborativeMode, executeCollaborativeOperation, selectedTouchpoint]);
+  }, [deleteTouchpoint, selectedTouchpoint]);
 
-  const handleAddTouchpoint = useCallback(async (newTouchpoint: Omit<Touchpoint, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!journey) return;
-    
-    console.log('Adding touchpoint:', newTouchpoint, 'Collaborative mode:', isCollaborativeMode);
-    
-    if (isCollaborativeMode) {
-      const now = new Date().toISOString();
-      const touchpoint: Touchpoint = {
-        ...newTouchpoint,
-        id: Date.now().toString(),
-        createdAt: now,
-        updatedAt: now,
-      };
+  const handleAddTouchpoint = useCallback(async (newTouchpoint: Omit<TouchpointWithImage, 'id' | 'createdAt' | 'updatedAt'>) => {
+    await createTouchpoint(newTouchpoint);
+  }, [createTouchpoint]);
 
-      const result = await executeCollaborativeOperation({
-        type: 'CREATE_TOUCHPOINT',
-        touchpoint,
-        timestamp: Date.now(),
-        operationId: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      });
-      console.log('Collaborative add result:', result);
-    } else {
-      const updatedJourney = CRDTJourneyStorage.createTouchpoint(journey.id, newTouchpoint);
-      if (updatedJourney) setJourney(updatedJourney);
-    }
-  }, [journey, isCollaborativeMode, executeCollaborativeOperation]);
-
-  const handleTouchpointClick = useCallback((touchpoint: Touchpoint) => {
+  const handleTouchpointClick = useCallback((touchpoint: TouchpointWithImage) => {
     setSelectedTouchpoint(touchpoint);
     const element = document.getElementById(`touchpoint-${touchpoint.id}`);
     if (element) {
@@ -163,13 +77,10 @@ export default function CollaboratePage() {
     }
   }, []);
 
-  // Mouse tracking for cursor sharing
-  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+  // Mouse tracking for cursor sharing (disabled)
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isCollaborativeMode) {
-      const rect = event.currentTarget.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      updateCursor(x, y);
+      updateCursor(e.clientX, e.clientY);
     }
   }, [isCollaborativeMode, updateCursor]);
 
@@ -223,11 +134,13 @@ export default function CollaboratePage() {
     );
   }
 
-  if (!journey) {
+  if (loading || !journey) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-xl font-black text-gray-800">🔍 Loading collaborative journey...</p>
+          <p className="text-xl font-black text-gray-800">
+            {loading ? '🔍 Loading collaborative journey...' : error || 'Journey not found'}
+          </p>
         </div>
       </div>
     );
@@ -287,7 +200,7 @@ export default function CollaboratePage() {
           {/* Journey Visualization */}
           <div className="mb-8">
             <JourneyMap 
-              touchpoints={CRDTJourneyStorage.getTouchpointsArray(journey)}
+              touchpoints={touchpoints}
               onTouchpointClick={handleTouchpointClick}
               onAddTouchpoint={handleAddTouchpoint}
               onUpdateTouchpoint={handleUpdateTouchpoint}
@@ -296,7 +209,7 @@ export default function CollaboratePage() {
 
           {/* Touchpoint Details */}
           <TouchpointDetails
-            touchpoints={CRDTJourneyStorage.getTouchpointsArray(journey)}
+            touchpoints={touchpoints}
             selectedTouchpoint={selectedTouchpoint}
             onUpdateTouchpoint={handleUpdateTouchpoint}
             onDeleteTouchpoint={handleDeleteTouchpoint}

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { type Touchpoint } from '@/lib/crdt-storage';
+import React, { useState, useRef, useEffect } from 'react';
+import { type TouchpointWithImage } from '@/lib/indexeddb-storage';
 
 interface TouchpointDetailsProps {
-  touchpoints: Touchpoint[];
-  selectedTouchpoint?: Touchpoint;
-  onUpdateTouchpoint?: (touchpoint: Touchpoint) => void;
+  touchpoints: TouchpointWithImage[];
+  selectedTouchpoint?: TouchpointWithImage;
+  onUpdateTouchpoint?: (touchpoint: TouchpointWithImage, imageFile?: File) => void;
   onDeleteTouchpoint?: (id: string) => void;
 }
 
@@ -17,24 +17,99 @@ export default function TouchpointDetails({
   onDeleteTouchpoint 
 }: TouchpointDetailsProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<Touchpoint>>({});
+  const [formData, setFormData] = useState<Partial<TouchpointWithImage>>({});
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [, setForceRenderKey] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleEdit = (touchpoint: Touchpoint) => {
+
+  const handleEdit = (touchpoint: TouchpointWithImage) => {
     setEditingId(touchpoint.id);
     setFormData(touchpoint);
+    setPendingImageFile(null);
   };
 
   const handleSave = () => {
     if (editingId && onUpdateTouchpoint) {
-      onUpdateTouchpoint(formData as Touchpoint);
+      onUpdateTouchpoint(formData as TouchpointWithImage, pendingImageFile || undefined);
       setEditingId(null);
       setFormData({});
+      setPendingImageFile(null);
     }
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setFormData({});
+    setPendingImageFile(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, touchpointId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverId(touchpointId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only clear if we're leaving the touchpoint area completely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverId(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, touchpointId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverId(null);
+
+    const files = e.dataTransfer.files;
+    
+    if (files.length > 0) {
+      const file = files[0];
+      
+      if (file.type.startsWith('image/')) {
+        const touchpoint = touchpoints.find(tp => tp.id === touchpointId);
+        
+        if (touchpoint && onUpdateTouchpoint) {
+          try {
+            onUpdateTouchpoint(touchpoint, file);
+            // Force a re-render after a short delay to ensure state updates
+            setTimeout(() => {
+              setForceRenderKey(prev => prev + 1);
+            }, 100);
+          } catch (error) {
+            console.error('Error updating touchpoint with image:', error);
+          }
+        }
+      } else {
+        alert('Please drop an image file.');
+      }
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setPendingImageFile(file);
+    } else {
+      alert('Please select an image file.');
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (editingId && onUpdateTouchpoint) {
+      const updatedFormData = {
+        ...formData,
+        imageData: undefined,
+        imageName: undefined,
+        imageType: undefined,
+      };
+      setFormData(updatedFormData);
+      setPendingImageFile(null);
+    }
   };
 
   const getEmotionLabel = (emotion: string) => {
@@ -69,11 +144,16 @@ export default function TouchpointDetails({
               <div
                 key={touchpoint.id}
                 id={`touchpoint-${touchpoint.id}`}
-                className={`p-6 rounded-lg border-2 transition-all ${
+                className={`p-6 rounded-lg border-2 transition-all relative ${
                   selectedTouchpoint?.id === touchpoint.id
                     ? 'border-blue-300 bg-blue-50'
+                    : dragOverId === touchpoint.id
+                    ? 'border-purple-400 bg-purple-50'
                     : getEmotionColor(touchpoint.emotion)
                 }`}
+                onDragOver={(e) => handleDragOver(e, touchpoint.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, touchpoint.id)}
               >
                 {editingId === touchpoint.id ? (
                   <div className="space-y-4">
@@ -135,6 +215,58 @@ export default function TouchpointDetails({
                       </div>
                     </div>
                     
+                    {/* Image Upload Section */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Image
+                      </label>
+                      
+                      {/* Current image display */}
+                      {(formData.imageData || pendingImageFile) && (
+                        <div className="mb-3 relative inline-block">
+                          <img
+                            src={
+                              pendingImageFile
+                                ? URL.createObjectURL(pendingImageFile)
+                                : formData.imageData
+                            }
+                            alt={formData.imageName || 'Touchpoint image'}
+                            className="max-w-xs max-h-32 object-contain rounded border"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemoveImage}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* File input */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                      
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                        >
+                          {formData.imageData || pendingImageFile ? 'Change Image' : 'Add Image'}
+                        </button>
+                        
+                        <span className="text-xs text-gray-500 self-center">
+                          or drag & drop an image on the card
+                        </span>
+                      </div>
+                    </div>
+                    
                     <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
                       <button
                         onClick={handleSave}
@@ -179,7 +311,33 @@ export default function TouchpointDetails({
                         </button>
                       </div>
                     </div>
+                    
+                    {/* Image display in read-only mode */}
+                    {touchpoint.imageData && (
+                      <div className="mt-3 mb-3">
+                        <img
+                          src={touchpoint.imageData}
+                          alt={touchpoint.imageName || 'Touchpoint image'}
+                          className="max-w-sm max-h-40 object-contain rounded border"
+                        />
+                        {touchpoint.imageName && (
+                          <p className="text-xs text-gray-500 mt-1">{touchpoint.imageName}</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    
                     <p className="text-gray-700 leading-relaxed">{touchpoint.description}</p>
+                    
+                    {/* Drag and drop indicator */}
+                    {dragOverId === touchpoint.id && (
+                      <div className="absolute inset-0 bg-purple-100 bg-opacity-90 border-2 border-dashed border-purple-400 rounded-lg flex items-center justify-center pointer-events-none">
+                        <div className="text-purple-600 font-medium">
+                          Drop image here to add to touchpoint
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="mt-3 text-xs text-gray-500">
                       Step {index + 1} of {touchpoints.length}
                     </div>

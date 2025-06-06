@@ -1,13 +1,13 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { type Touchpoint } from '@/lib/crdt-storage';
+import { type TouchpointWithImage } from '@/lib/indexeddb-storage';
 
 interface JourneyMapProps {
-  touchpoints: Touchpoint[];
-  onTouchpointClick?: (touchpoint: Touchpoint) => void;
-  onAddTouchpoint?: (touchpoint: Omit<Touchpoint, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  onUpdateTouchpoint?: (touchpoint: Touchpoint) => void;
+  touchpoints: TouchpointWithImage[];
+  onTouchpointClick?: (touchpoint: TouchpointWithImage) => void;
+  onAddTouchpoint?: (touchpoint: Omit<TouchpointWithImage, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onUpdateTouchpoint?: (touchpoint: TouchpointWithImage) => void;
 }
 
 export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchpoint, onUpdateTouchpoint }: JourneyMapProps) {
@@ -29,7 +29,7 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     
     const { emotion, intensity } = getEmotionFromY(clampedY);
 
-    const newTouchpoint: Omit<Touchpoint, 'id' | 'createdAt' | 'updatedAt'> = {
+    const newTouchpoint: Omit<TouchpointWithImage, 'id' | 'createdAt' | 'updatedAt'> = {
       title: 'New Touchpoint',
       description: 'Click to edit this touchpoint',
       emotion,
@@ -40,13 +40,13 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     onAddTouchpoint?.(newTouchpoint);
   };
 
-  const handleTouchpointClick = (touchpoint: Touchpoint) => {
+  const handleTouchpointClick = (touchpoint: TouchpointWithImage) => {
     if (!dragging || !dragging.hasMoved) {
       onTouchpointClick?.(touchpoint);
     }
   };
 
-  const handleMouseDown = (event: React.MouseEvent, touchpoint: Touchpoint) => {
+  const handleMouseDown = (event: React.MouseEvent, touchpoint: TouchpointWithImage) => {
     event.stopPropagation();
     if (!svgRef.current) return;
 
@@ -152,7 +152,7 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     }
   };
 
-  const createSmoothPath = (touchpoints: Touchpoint[]): string => {
+  const createSmoothPath = (touchpoints: TouchpointWithImage[]): string => {
     const sortedPoints = touchpoints
       .sort((a, b) => a.xPosition - b.xPosition)
       .map(tp => ({ x: tp.xPosition, y: getEmotionY(tp.emotion, tp.intensity) }));

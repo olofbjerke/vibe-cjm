@@ -47,11 +47,9 @@ export class CollaborativeCRDT {
   async connect(): Promise<void> {
     try {
       const wsUrl = this.getWebSocketUrl();
-      console.log('Connecting to WebSocket:', wsUrl);
       this.websocket = new WebSocket(wsUrl);
 
       this.websocket.onopen = () => {
-        console.log('Connected to collaboration server for journey:', this.journeyId);
         this.reconnectAttempts = 0;
         this.updateConnectionState(true);
         this.requestSync();
@@ -68,7 +66,6 @@ export class CollaborativeCRDT {
       };
 
       this.websocket.onclose = () => {
-        console.log('Disconnected from collaboration server');
         this.updateConnectionState(false);
         this.scheduleReconnect();
       };
@@ -93,11 +90,8 @@ export class CollaborativeCRDT {
   }
 
   async executeOperation(operation: Operation): Promise<JourneyMap | null> {
-    console.log('Executing collaborative operation:', operation);
-    
     // Execute locally first
     const journey = CRDTJourneyStorage.executeOperation(this.journeyId, operation);
-    console.log('Local execution result:', journey);
     
     if (journey && this.onJourneyUpdate) {
       this.onJourneyUpdate(journey);
@@ -105,7 +99,6 @@ export class CollaborativeCRDT {
 
     // Send to server if connected
     if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-      console.log('Sending operation to server with current state');
       this.sendMessage({
         type: 'operation',
         data: {
@@ -118,7 +111,6 @@ export class CollaborativeCRDT {
         userId: this.userId,
       });
     } else {
-      console.log('WebSocket not connected, queuing operation');
       // Queue operation for when connection is restored
       this.pendingOperations.push(operation);
     }
@@ -160,19 +152,14 @@ export class CollaborativeCRDT {
   }
 
   private handleRemoteOperation(operationData: { operation: Operation; userId: string }): void {
-    console.log('Received remote operation:', operationData);
-    
     // Don't apply our own operations
     if (operationData.userId === this.userId) {
-      console.log('Skipping own operation');
       return;
     }
 
     try {
-      // Apply the remote operation locally
-      console.log('Applying remote operation to local storage');
+      // Apply the remote operation to CRDT storage for collaboration consistency
       const journey = CRDTJourneyStorage.executeOperation(this.journeyId, operationData.operation);
-      console.log('Remote operation result:', journey);
       
       if (journey && this.onJourneyUpdate) {
         this.onJourneyUpdate(journey);
@@ -192,11 +179,8 @@ export class CollaborativeCRDT {
   }
 
   private handleSyncResponse(data: { operations?: { operation: Operation; userId: string }[]; users?: CollaborativeUser[]; currentState?: JourneyMap }): void {
-    console.log('Received sync response:', data);
-    
     // If we have a current state from server, apply it first
     if (data.currentState) {
-      console.log('Applying current state from server:', data.currentState);
       try {
         // Store the current state directly
         CRDTJourneyStorage.setJourney(this.journeyId, data.currentState);
@@ -211,11 +195,7 @@ export class CollaborativeCRDT {
     
     // Apply all operations from server
     if (data.operations && Array.isArray(data.operations)) {
-      console.log(`Applying ${data.operations.length} operations from server`);
-      
       for (const opData of data.operations) {
-        console.log('Applying operation:', opData);
-        
         // Apply all operations, including our own (in case we missed some)
         try {
           CRDTJourneyStorage.executeOperation(this.journeyId, opData.operation);
@@ -226,13 +206,10 @@ export class CollaborativeCRDT {
 
       // Update journey after applying operations
       const journey = CRDTJourneyStorage.getJourney(this.journeyId);
-      console.log('Journey after sync operations:', journey);
       
       if (journey && this.onJourneyUpdate) {
         this.onJourneyUpdate(journey);
       }
-    } else {
-      console.log('No operations in sync response');
     }
 
     // Update user list
@@ -326,11 +303,9 @@ export class CollaborativeCRDT {
       this.reconnectAttempts++;
       
       setTimeout(() => {
-        console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
         this.connect();
       }, delay);
     } else {
-      console.error('Max reconnection attempts reached');
       this.updateConnectionState(false, 'Connection lost');
     }
   }
@@ -357,7 +332,6 @@ export class CollaborativeCRDT {
     
     // Add username as query parameter
     const url = `${baseUrl}?userName=${encodeURIComponent(this.userName)}&userId=${encodeURIComponent(this.userId)}`;
-    console.log('WebSocket URL:', url);
     return url;
   }
 

@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import JourneyMap from '@/components/JourneyMap';
 import TouchpointDetails from '@/components/TouchpointDetails';
-import { CRDTJourneyStorage, type Touchpoint, type JourneyMap as JourneyMapType } from '@/lib/crdt-storage';
+import { type TouchpointWithImage, type JourneyMapWithImages, IndexedDBJourneyStorage } from '@/lib/indexeddb-storage';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
 export default function Home() {
   const router = useRouter();
-  const [journey, setJourney] = useState<JourneyMapType | null>(null);
-  const [selectedTouchpoint, setSelectedTouchpoint] = useState<Touchpoint | undefined>();
-  const [savedJourneys, setSavedJourneys] = useState<JourneyMapType[]>([]);
+  const [journey, setJourney] = useState<JourneyMapWithImages | null>(null);
+  const [selectedTouchpoint, setSelectedTouchpoint] = useState<TouchpointWithImage | undefined>();
+  const [savedJourneys, setSavedJourneys] = useState<JourneyMapWithImages[]>([]);
   const [showJourneyList, setShowJourneyList] = useState<boolean>(false);
   const [canUndo, setCanUndo] = useState<boolean>(false);
   const [canRedo, setCanRedo] = useState<boolean>(false);
@@ -32,33 +32,24 @@ export default function Home() {
     }
   );
 
-  // Update undo/redo availability
+  // Update undo/redo availability (temporarily disabled for IndexedDB)
   const updateUndoRedoState = (journeyId: string) => {
-    setCanUndo(CRDTJourneyStorage.canUndo(journeyId));
-    setCanRedo(CRDTJourneyStorage.canRedo(journeyId));
+    // TODO: Implement undo/redo for IndexedDB
+    setCanUndo(false);
+    setCanRedo(false);
   };
 
   const handleUndo = useCallback(() => {
-    if (!journey || !canUndo) return;
-    
-    const updatedJourney = CRDTJourneyStorage.undoOperation(journey.id);
-    if (updatedJourney) {
-      setJourney(updatedJourney);
-      updateUndoRedoState(journey.id);
-    }
-  }, [journey, canUndo]);
+    // TODO: Implement undo for IndexedDB
+    console.log('Undo not yet implemented for IndexedDB');
+  }, []);
 
   const handleRedo = useCallback(() => {
-    if (!journey || !canRedo) return;
-    
-    const updatedJourney = CRDTJourneyStorage.redoOperation(journey.id);
-    if (updatedJourney) {
-      setJourney(updatedJourney);
-      updateUndoRedoState(journey.id);
-    }
-  }, [journey, canRedo]);
+    // TODO: Implement redo for IndexedDB
+    console.log('Redo not yet implemented for IndexedDB');
+  }, []);
 
-  const loadJourney = useCallback((loadedJourney: JourneyMapType) => {
+  const loadJourney = useCallback((loadedJourney: JourneyMapWithImages) => {
     setJourney(loadedJourney);
     setSelectedTouchpoint(undefined);
     updateUndoRedoState(loadedJourney.id);
@@ -83,24 +74,39 @@ export default function Home() {
 
   // Load saved journeys on component mount
   useEffect(() => {
-    const journeys = CRDTJourneyStorage.getAllJourneys();
-    setSavedJourneys(journeys);
+    const initializeApp = async () => {
+      try {
+        // Initialize IndexedDB
+        await IndexedDBJourneyStorage.init();
+        
+        // Migrate from localStorage if needed
+        await IndexedDBJourneyStorage.migrateFromLocalStorage();
+        
+        // Load all journeys
+        const journeys = await IndexedDBJourneyStorage.getAllJourneys();
+        setSavedJourneys(journeys);
+        
+        // Auto-load the most recent journey if available
+        if (journeys.length > 0) {
+          const mostRecent = journeys.sort((a, b) => 
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          )[0];
+          loadJourney(mostRecent);
+        } else {
+          // Create a default journey if none exist
+          const newJourney = await IndexedDBJourneyStorage.createJourney('My Customer Journey', 'Welcome to your first customer journey map!');
+          setJourney(newJourney);
+          setSavedJourneys([newJourney]);
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+      }
+    };
     
-    // Auto-load the most recent journey if available
-    if (journeys.length > 0) {
-      const mostRecent = journeys.sort((a, b) => 
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      )[0];
-      loadJourney(mostRecent);
-    } else {
-      // Create a default journey if none exist
-      const newJourney = CRDTJourneyStorage.createJourney('My Customer Journey', 'Welcome to your first customer journey map!');
-      setJourney(newJourney);
-      setSavedJourneys([newJourney]);
-    }
+    initializeApp();
   }, [loadJourney]);
 
-  const handleTouchpointClick = (touchpoint: Touchpoint) => {
+  const handleTouchpointClick = (touchpoint: TouchpointWithImage) => {
     setSelectedTouchpoint(touchpoint);
     const element = document.getElementById(`touchpoint-${touchpoint.id}`);
     if (element) {
@@ -108,72 +114,117 @@ export default function Home() {
     }
   };
 
-  const handleUpdateTouchpoint = (updatedTouchpoint: Touchpoint) => {
+  const handleUpdateTouchpoint = async (updatedTouchpoint: TouchpointWithImage, imageFile?: File) => {
     if (!journey) return;
     
-    const updatedJourney = CRDTJourneyStorage.updateTouchpoint(
-      journey.id,
-      updatedTouchpoint.id,
-      updatedTouchpoint
-    );
-    
-    if (updatedJourney) {
-      setJourney(updatedJourney);
-      updateUndoRedoState(journey.id);
-    }
-  };
-
-  const handleDeleteTouchpoint = (id: string) => {
-    if (!journey) return;
-    
-    const updatedJourney = CRDTJourneyStorage.deleteTouchpoint(journey.id, id);
-    
-    if (updatedJourney) {
-      setJourney(updatedJourney);
-      updateUndoRedoState(journey.id);
+    try {
+      const changes: Partial<TouchpointWithImage> = {
+        title: updatedTouchpoint.title,
+        description: updatedTouchpoint.description,
+        emotion: updatedTouchpoint.emotion,
+        intensity: updatedTouchpoint.intensity,
+        xPosition: updatedTouchpoint.xPosition,
+      };
       
-      if (selectedTouchpoint?.id === id) {
-        setSelectedTouchpoint(undefined);
+      const updatedJourney = await IndexedDBJourneyStorage.updateTouchpoint(
+        journey.id,
+        updatedTouchpoint.id,
+        changes,
+        imageFile
+      );
+      
+      if (updatedJourney) {
+        setJourney(updatedJourney);
+        updateUndoRedoState(journey.id);
       }
+    } catch (error) {
+      console.error('Error updating touchpoint:', error);
     }
   };
 
-  const handleAddTouchpoint = (newTouchpoint: Omit<Touchpoint, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleDeleteTouchpoint = async (id: string) => {
     if (!journey) return;
     
-    const updatedJourney = CRDTJourneyStorage.createTouchpoint(journey.id, newTouchpoint);
-    
-    if (updatedJourney) {
-      setJourney(updatedJourney);
-      updateUndoRedoState(journey.id);
+    try {
+      const updatedJourney = await IndexedDBJourneyStorage.deleteTouchpoint(journey.id, id);
+      
+      if (updatedJourney) {
+        setJourney(updatedJourney);
+        updateUndoRedoState(journey.id);
+        
+        if (selectedTouchpoint?.id === id) {
+          setSelectedTouchpoint(undefined);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting touchpoint:', error);
     }
   };
 
-  const handleUpdateJourneyMetadata = (title: string, description?: string) => {
+  const handleAddTouchpoint = async (newTouchpoint: Omit<TouchpointWithImage, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!journey) return;
     
-    const updatedJourney = CRDTJourneyStorage.updateJourneyMetadata(journey.id, {
-      title,
-      description
-    });
-    
-    if (updatedJourney) {
-      setJourney(updatedJourney);
-      updateUndoRedoState(journey.id);
+    try {
+      const updatedJourney = await IndexedDBJourneyStorage.createTouchpoint(journey.id, newTouchpoint);
+      
+      if (updatedJourney) {
+        setJourney(updatedJourney);
+        updateUndoRedoState(journey.id);
+      }
+    } catch (error) {
+      console.error('Error adding touchpoint:', error);
     }
   };
 
-  const handleNewJourney = () => {
-    const newJourney = CRDTJourneyStorage.createJourney('New Customer Journey', 'Describe your customer journey here...');
-    setJourney(newJourney);
-    setSelectedTouchpoint(undefined);
-    setSavedJourneys(CRDTJourneyStorage.getAllJourneys());
-    updateUndoRedoState(newJourney.id);
+  const handleUpdateJourneyMetadata = async (title: string, description?: string) => {
+    if (!journey) return;
+    
+    try {
+      const updatedJourney = await IndexedDBJourneyStorage.updateJourneyMetadata(journey.id, {
+        title,
+        description
+      });
+      
+      if (updatedJourney) {
+        setJourney(updatedJourney);
+        updateUndoRedoState(journey.id);
+      }
+    } catch (error) {
+      console.error('Error updating journey metadata:', error);
+    }
+  };
+
+  const handleNewJourney = async () => {
+    try {
+      const newJourney = await IndexedDBJourneyStorage.createJourney('New Customer Journey', 'Describe your customer journey here...');
+      setJourney(newJourney);
+      setSelectedTouchpoint(undefined);
+      const allJourneys = await IndexedDBJourneyStorage.getAllJourneys();
+      setSavedJourneys(allJourneys);
+      updateUndoRedoState(newJourney.id);
+    } catch (error) {
+      console.error('Error creating new journey:', error);
+    }
   };
 
   const handleExportJourney = () => {
     if (journey) {
-      CRDTJourneyStorage.exportJourney(journey);
+      // Create export data
+      const exportData = {
+        ...journey,
+        touchpoints: IndexedDBJourneyStorage.getTouchpointsArray(journey)
+      };
+      
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${journey.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}-export.json`;
+      link.click();
+      
+      URL.revokeObjectURL(url);
     }
   };
 
@@ -199,7 +250,7 @@ export default function Home() {
       const journeyData = JSON.parse(content);
       
       // Create new journey with imported data
-      const newJourney = CRDTJourneyStorage.createJourney(
+      const newJourney = await IndexedDBJourneyStorage.createJourney(
         journeyData.title + ' (Imported)',
         journeyData.description || ''
       );
@@ -207,7 +258,7 @@ export default function Home() {
       // Import touchpoints
       if (Array.isArray(journeyData.touchpoints)) {
         for (const tp of journeyData.touchpoints) {
-          CRDTJourneyStorage.createTouchpoint(newJourney.id, {
+          await IndexedDBJourneyStorage.createTouchpoint(newJourney.id, {
             title: tp.title || 'Imported Touchpoint',
             description: tp.description || '',
             emotion: tp.emotion || 'neutral',
@@ -217,10 +268,11 @@ export default function Home() {
         }
       }
       
-      const finalJourney = CRDTJourneyStorage.getJourney(newJourney.id);
+      const finalJourney = await IndexedDBJourneyStorage.getJourney(newJourney.id);
       if (finalJourney) {
         loadJourney(finalJourney);
-        setSavedJourneys(CRDTJourneyStorage.getAllJourneys());
+        const allJourneys = await IndexedDBJourneyStorage.getAllJourneys();
+        setSavedJourneys(allJourneys);
         alert('Journey imported successfully!');
       }
     } catch (error) {
@@ -382,7 +434,7 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {savedJourneys.map((savedJourney, index) => {
-                  const touchpointCount = CRDTJourneyStorage.getTouchpointsArray(savedJourney).length;
+                  const touchpointCount = IndexedDBJourneyStorage.getTouchpointsArray(savedJourney).length;
                   return (
                     <div
                       key={savedJourney.id}
@@ -428,7 +480,7 @@ export default function Home() {
           <>
             <div className="mb-8">
               <JourneyMap 
-                touchpoints={CRDTJourneyStorage.getTouchpointsArray(journey)}
+                touchpoints={IndexedDBJourneyStorage.getTouchpointsArray(journey)}
                 onTouchpointClick={handleTouchpointClick}
                 onAddTouchpoint={handleAddTouchpoint}
                 onUpdateTouchpoint={handleUpdateTouchpoint}
@@ -437,7 +489,7 @@ export default function Home() {
 
             {/* Touchpoint Details */}
             <TouchpointDetails
-              touchpoints={CRDTJourneyStorage.getTouchpointsArray(journey)}
+              touchpoints={IndexedDBJourneyStorage.getTouchpointsArray(journey)}
               selectedTouchpoint={selectedTouchpoint}
               onUpdateTouchpoint={handleUpdateTouchpoint}
               onDeleteTouchpoint={handleDeleteTouchpoint}
