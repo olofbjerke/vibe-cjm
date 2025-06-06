@@ -129,6 +129,14 @@ export default function Home() {
     }
   };
 
+  const handlePresentJourney = () => {
+    if (currentJourneyId) {
+      window.open(`/present/${currentJourneyId}`, '_blank');
+    } else {
+      alert('Please save your journey first to present it!');
+    }
+  };
+
   const handleImportJourney = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -189,6 +197,18 @@ export default function Home() {
                 style={{ boxShadow: '4px 4px 0 #2563eb' }}
               >
                 📚 Library ({savedJourneys.length})
+              </button>
+              <button 
+                onClick={handlePresentJourney}
+                disabled={!currentJourneyId}
+                className={`px-5 py-3 border-3 font-black text-sm rounded-lg transform hover:rotate-1 transition-all ${
+                  !currentJourneyId
+                    ? 'bg-gray-300 border-gray-400 text-gray-600 cursor-not-allowed'
+                    : 'bg-pink-400 hover:bg-pink-500 border-pink-600 text-white'
+                }`}
+                style={{ boxShadow: !currentJourneyId ? '2px 2px 0 #9ca3af' : '4px 4px 0 #ec4899' }}
+              >
+                🎭 Present
               </button>
               <button 
                 onClick={handleExportJourney}
