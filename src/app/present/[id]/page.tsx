@@ -33,7 +33,8 @@ export default function PresentPage() {
     );
   }
 
-  const sortedTouchpoints = journey.touchpoints.sort((a, b) => a.xPosition - b.xPosition);
+  // Sort touchpoints by their xPosition to maintain spatial order from the editing canvas
+  const sortedTouchpoints = [...journey.touchpoints].sort((a, b) => a.xPosition - b.xPosition);
 
   const handleTouchpointClick = (index: number) => {
     setActiveIndex(index);

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useEffect, useState } from 'react';
 import { type Touchpoint } from '@/lib/storage';
 
 interface PresentationJourneyMapProps {
@@ -9,15 +10,40 @@ interface PresentationJourneyMapProps {
 }
 
 export default function PresentationJourneyMap({ touchpoints, activeIndex, onTouchpointClick }: PresentationJourneyMapProps) {
-  const getEmotionY = (emotion: string, intensity: number = 5) => {
-    // Map emotion to base Y position, then apply intensity (1-10 scale)
-    // Scale all Y coordinates by 2 for the 800x200 viewBox
-    const baseY = {
-      'positive': 40 + (5 - Math.min(intensity, 5)) * 8, // 40-80 range
-      'negative': 120 + (Math.min(intensity, 5) - 1) * 8, // 120-160 range  
-      'neutral': 90 + (intensity - 5) * 4 // 80-100 range
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [svgWidth, setSvgWidth] = useState(1200);
+  const svgHeight = 300;
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        setSvgWidth(rect.width || 1200);
+      }
     };
-    return baseY[emotion as keyof typeof baseY] || 100;
+
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  // Calculate relative positions based on the total journey span and current SVG width
+  const getRelativeXPosition = (touchpoint: Touchpoint, index: number) => {
+    if (touchpoints.length === 1) return svgWidth / 2; // Center single point
+    
+    // Map the index to coordinate range (5% to 95% of width to avoid edge clipping)
+    const progress = index / (touchpoints.length - 1);
+    return (svgWidth * 0.05) + (progress * (svgWidth * 0.9));
+  };
+
+  const getEmotionY = (emotion: string, intensity: number = 5) => {
+    // Map emotion to base Y position for current viewBox height
+    const baseY = {
+      'positive': 60 + (5 - Math.min(intensity, 5)) * 12, // 60-120 range
+      'negative': 180 + (Math.min(intensity, 5) - 1) * 12, // 180-240 range  
+      'neutral': 135 + (intensity - 5) * 6 // 120-150 range
+    };
+    return baseY[emotion as keyof typeof baseY] || 150;
   };
 
   const getEmotionColor = (emotion: string) => {
@@ -29,8 +55,9 @@ export default function PresentationJourneyMap({ touchpoints, activeIndex, onTou
   };
 
   const createSmoothPath = (touchpoints: Touchpoint[]): string => {
+    // Use relative positioning for all touchpoints
     const sortedPoints = touchpoints
-      .map(tp => ({ x: tp.xPosition, y: getEmotionY(tp.emotion, tp.intensity) }));
+      .map((tp, index) => ({ x: getRelativeXPosition(tp, index), y: getEmotionY(tp.emotion, tp.intensity) }));
 
     if (sortedPoints.length === 0) return '';
     if (sortedPoints.length === 1) return `M ${sortedPoints[0].x} ${sortedPoints[0].y}`;
@@ -84,15 +111,16 @@ export default function PresentationJourneyMap({ touchpoints, activeIndex, onTou
   return (
     <div className="w-full">
       <svg
+        ref={svgRef}
         className="w-full h-32 sm:h-40 rounded-lg bg-yellow-50 border-2 border-dashed border-yellow-300"
         style={{ boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}
-        viewBox="0 0 800 200"
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         preserveAspectRatio="xMidYMid meet"
       >
         {/* Background grid and gradients */}
         <defs>
-          <pattern id="presentGrid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#e9d5ff" strokeWidth="0.5"/>
+          <pattern id="presentGrid" width={Math.max(30, svgWidth / 40)} height="30" patternUnits="userSpaceOnUse">
+            <path d={`M ${Math.max(30, svgWidth / 40)} 0 L 0 0 0 30`} fill="none" stroke="#e9d5ff" strokeWidth="2"/>
           </pattern>
           <linearGradient id="presentEmotionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" style={{ stopColor: '#10b981', stopOpacity: 1 }} />
@@ -103,21 +131,21 @@ export default function PresentationJourneyMap({ touchpoints, activeIndex, onTou
         <rect width="100%" height="100%" fill="url(#presentGrid)" />
         
         {/* Emotion level indicators */}
-        <text x="8" y="44" fontSize="12" fill="#10b981" className="text-xs">😍</text>
-        <text x="8" y="64" fontSize="12" fill="#10b981" className="text-xs">😊</text>
-        <text x="8" y="84" fontSize="12" fill="#10b981" className="text-xs">🙂</text>
-        <text x="8" y="104" fontSize="12" fill="#6b7280" className="text-xs">😐</text>
-        <text x="8" y="124" fontSize="12" fill="#ef4444" className="text-xs">🙁</text>
-        <text x="8" y="144" fontSize="12" fill="#ef4444" className="text-xs">😞</text>
-        <text x="8" y="164" fontSize="12" fill="#ef4444" className="text-xs">😡</text>
+        <text x="12" y="66" fontSize="36" fill="#10b981" className="text-xs">😍</text>
+        <text x="12" y="96" fontSize="36" fill="#10b981" className="text-xs">😊</text>
+        <text x="12" y="126" fontSize="36" fill="#10b981" className="text-xs">🙂</text>
+        <text x="12" y="156" fontSize="36" fill="#6b7280" className="text-xs">😐</text>
+        <text x="12" y="186" fontSize="36" fill="#ef4444" className="text-xs">🙁</text>
+        <text x="12" y="216" fontSize="36" fill="#ef4444" className="text-xs">😞</text>
+        <text x="12" y="246" fontSize="36" fill="#ef4444" className="text-xs">😡</text>
         
         {/* Main journey path */}
         <path
-          d="M 40 100 L 760 100"
+          d={`M ${svgWidth * 0.05} 150 L ${svgWidth * 0.95} 150`}
           fill="none"
           stroke="#8b5cf6"
-          strokeWidth="4"
-          strokeDasharray="12,6"
+          strokeWidth="8"
+          strokeDasharray="36,18"
           strokeLinecap="round"
         />
         
@@ -127,76 +155,81 @@ export default function PresentationJourneyMap({ touchpoints, activeIndex, onTou
             d={createSmoothPath(touchpoints)}
             fill="none"
             stroke="url(#presentEmotionGradient)"
-            strokeWidth="5"
-            strokeDasharray="10,5"
+            strokeWidth="12"
+            strokeDasharray="24,12"
             strokeLinecap="round"
             opacity="0.9"
           />
         )}
         
         {/* Touchpoints */}
-        {touchpoints.map((touchpoint, index) => (
-          <g key={touchpoint.id}>
-            {/* Connection line to main path */}
-            <line
-              x1={touchpoint.xPosition}
-              y1={100}
-              x2={touchpoint.xPosition}
-              y2={getEmotionY(touchpoint.emotion, touchpoint.intensity)}
-              stroke="#d1d5db"
-              strokeWidth="1"
-              strokeDasharray="4,4"
-            />
-            
-            {/* Touchpoint circle */}
-            <circle
-              cx={touchpoint.xPosition}
-              cy={getEmotionY(touchpoint.emotion, touchpoint.intensity)}
-              r={activeIndex === index ? "16" : "12"}
-              fill={getEmotionColor(touchpoint.emotion)}
-              stroke={activeIndex === index ? "#3b82f6" : "white"}
-              strokeWidth={activeIndex === index ? "4" : "3"}
-              className="cursor-pointer"
-              onClick={() => onTouchpointClick(index)}
-              style={{ 
-                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
-                transition: 'all 0.3s ease'
-              }}
-            />
-            
-            {/* Step number */}
-            <text
-              x={touchpoint.xPosition}
-              y={getEmotionY(touchpoint.emotion, touchpoint.intensity) + 1}
-              fontSize="10"
-              fontWeight="bold"
-              textAnchor="middle"
-              fill="white"
-              className="pointer-events-none"
-            >
-              {index + 1}
-            </text>
-            
-            {/* Touchpoint title (only for active) */}
-            {activeIndex === index && (
+        {touchpoints.map((touchpoint, index) => {
+          const xPos = getRelativeXPosition(touchpoint, index);
+          const yPos = getEmotionY(touchpoint.emotion, touchpoint.intensity);
+          
+          return (
+            <g key={touchpoint.id}>
+              {/* Connection line to main path */}
+              <line
+                x1={xPos}
+                y1={150}
+                x2={xPos}
+                y2={yPos}
+                stroke="#d1d5db"
+                strokeWidth="3"
+                strokeDasharray="12,12"
+              />
+              
+              {/* Touchpoint circle */}
+              <circle
+                cx={xPos}
+                cy={yPos}
+                r={activeIndex === index ? "30" : "20"}
+                fill={getEmotionColor(touchpoint.emotion)}
+                stroke={activeIndex === index ? "#3b82f6" : "white"}
+                strokeWidth={activeIndex === index ? "6" : "4"}
+                className="cursor-pointer"
+                onClick={() => onTouchpointClick(index)}
+                style={{ 
+                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+                  transition: 'all 0.3s ease'
+                }}
+              />
+              
+              {/* Step number */}
               <text
-                x={touchpoint.xPosition}
-                y={getEmotionY(touchpoint.emotion, touchpoint.intensity) - 24}
-                fontSize="12"
+                x={xPos}
+                y={yPos + 8}
+                fontSize="20"
                 fontWeight="bold"
                 textAnchor="middle"
-                fill="#3b82f6"
+                fill="white"
                 className="pointer-events-none"
               >
-                {touchpoint.title}
+                {index + 1}
               </text>
-            )}
-          </g>
-        ))}
+              
+              {/* Touchpoint title (only for active) */}
+              {activeIndex === index && (
+                <text
+                  x={xPos}
+                  y={yPos - 45}
+                  fontSize="24"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  fill="#3b82f6"
+                  className="pointer-events-none"
+                >
+                  {touchpoint.title}
+                </text>
+              )}
+            </g>
+          );
+        })}
         
         {/* Journey start and end labels */}
-        <text x="40" y="90" fontSize="12" fill="#6b7280" textAnchor="middle" fontWeight="bold">Start</text>
-        <text x="760" y="90" fontSize="12" fill="#6b7280" textAnchor="middle" fontWeight="bold">End</text>
+        <text x={svgWidth * 0.05} y="120" fontSize="24" fill="#6b7280" textAnchor="middle" fontWeight="bold">Start</text>
+        <text x={svgWidth * 0.95} y="120" fontSize="24" fill="#6b7280" textAnchor="middle" fontWeight="bold">End</text>
       </svg>
       
       {/* Navigation hints */}
