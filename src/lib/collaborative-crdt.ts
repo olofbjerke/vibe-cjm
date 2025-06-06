@@ -305,12 +305,12 @@ export class CollaborativeCRDT {
     // In production, use Cloudflare Workers WebSocket endpoint
     const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
     
-    if (isDevelopment) {
-      return `ws://localhost:8787/collaborate/${this.journeyId}`;
-    } else {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${protocol}//${window.location.host}/collaborate/${this.journeyId}`;
-    }
+    const baseUrl = isDevelopment 
+      ? `ws://localhost:8787/collaborate/${this.journeyId}`
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/collaborate/${this.journeyId}`;
+    
+    // Add username as query parameter
+    return `${baseUrl}?userName=${encodeURIComponent(this.userName)}&userId=${encodeURIComponent(this.userId)}`;
   }
 
   private generateUserId(): string {

@@ -212,15 +212,17 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
+  // Extract user info from query parameters
+  const userName = url.searchParams.get('userName') || `User ${Math.floor(Math.random() * 1000)}`;
+  const userId = url.searchParams.get('userId') || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  console.log(`User connecting: ${userName} (${userId}) to room ${journeyId}`);
+
   // Get or create room
   if (!rooms.has(journeyId)) {
     rooms.set(journeyId, new CollaborationRoom(journeyId));
   }
   const room = rooms.get(journeyId);
-
-  // Generate user info
-  const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const userName = `User ${Math.floor(Math.random() * 1000)}`;
 
   // Add client to room
   room.addClient(ws, userId, userName);
