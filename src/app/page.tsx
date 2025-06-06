@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import JourneyMap from '@/components/JourneyMap';
 import TouchpointDetails from '@/components/TouchpointDetails';
 import { CRDTJourneyStorage, type Touchpoint, type JourneyMap as JourneyMapType } from '@/lib/crdt-storage';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
 export default function Home() {
+  const router = useRouter();
   const [journey, setJourney] = useState<JourneyMapType | null>(null);
   const [selectedTouchpoint, setSelectedTouchpoint] = useState<Touchpoint | undefined>();
   const [savedJourneys, setSavedJourneys] = useState<JourneyMapType[]>([]);
@@ -177,7 +179,7 @@ export default function Home() {
 
   const handlePresentJourney = () => {
     if (journey) {
-      window.open(`/present/${journey.id}`, '_blank');
+      router.push(`/present/${journey.id}`);
     }
   };
 
