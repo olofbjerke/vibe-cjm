@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { type Touchpoint } from '@/lib/storage';
+import { type Touchpoint } from '@/lib/crdt-storage';
 
 interface TouchpointDetailsProps {
   touchpoints: Touchpoint[];

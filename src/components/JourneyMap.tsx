@@ -1,12 +1,12 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { type Touchpoint } from '@/lib/storage';
+import { type Touchpoint } from '@/lib/crdt-storage';
 
 interface JourneyMapProps {
   touchpoints: Touchpoint[];
   onTouchpointClick?: (touchpoint: Touchpoint) => void;
-  onAddTouchpoint?: (touchpoint: Touchpoint) => void;
+  onAddTouchpoint?: (touchpoint: Omit<Touchpoint, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onUpdateTouchpoint?: (touchpoint: Touchpoint) => void;
 }
 
@@ -29,8 +29,7 @@ export default function JourneyMap({ touchpoints, onTouchpointClick, onAddTouchp
     
     const { emotion, intensity } = getEmotionFromY(clampedY);
 
-    const newTouchpoint: Touchpoint = {
-      id: Date.now().toString(),
+    const newTouchpoint: Omit<Touchpoint, 'id' | 'createdAt' | 'updatedAt'> = {
       title: 'New Touchpoint',
       description: 'Click to edit this touchpoint',
       emotion,

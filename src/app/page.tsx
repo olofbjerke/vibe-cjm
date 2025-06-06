@@ -1,24 +1,87 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import JourneyMap from '@/components/JourneyMap';
 import TouchpointDetails from '@/components/TouchpointDetails';
-import { JourneyStorage, type Touchpoint, type JourneyMap as JourneyMapType } from '@/lib/storage';
+import { CRDTJourneyStorage, type Touchpoint, type JourneyMap as JourneyMapType } from '@/lib/crdt-storage';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 export default function Home() {
-  const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([]);
+  const [journey, setJourney] = useState<JourneyMapType | null>(null);
   const [selectedTouchpoint, setSelectedTouchpoint] = useState<Touchpoint | undefined>();
-  const [journeyTitle, setJourneyTitle] = useState<string>('My Customer Journey');
-  const [journeyDescription, setJourneyDescription] = useState<string>('');
-  const [currentJourneyId, setCurrentJourneyId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [savedJourneys, setSavedJourneys] = useState<JourneyMapType[]>([]);
   const [showJourneyList, setShowJourneyList] = useState<boolean>(false);
+  const [canUndo, setCanUndo] = useState<boolean>(false);
+  const [canRedo, setCanRedo] = useState<boolean>(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-save functionality
+  useAutoSave(
+    journey,
+    () => {
+      if (journey) {
+        setLastSaved(new Date());
+      }
+    },
+    {
+      delay: 1000,
+      onSave: () => setLastSaved(new Date())
+    }
+  );
+
+  // Update undo/redo availability
+  const updateUndoRedoState = (journeyId: string) => {
+    setCanUndo(CRDTJourneyStorage.canUndo(journeyId));
+    setCanRedo(CRDTJourneyStorage.canRedo(journeyId));
+  };
+
+  const handleUndo = useCallback(() => {
+    if (!journey || !canUndo) return;
+    
+    const updatedJourney = CRDTJourneyStorage.undoOperation(journey.id);
+    if (updatedJourney) {
+      setJourney(updatedJourney);
+      updateUndoRedoState(journey.id);
+    }
+  }, [journey, canUndo]);
+
+  const handleRedo = useCallback(() => {
+    if (!journey || !canRedo) return;
+    
+    const updatedJourney = CRDTJourneyStorage.redoOperation(journey.id);
+    if (updatedJourney) {
+      setJourney(updatedJourney);
+      updateUndoRedoState(journey.id);
+    }
+  }, [journey, canRedo]);
+
+  const loadJourney = useCallback((loadedJourney: JourneyMapType) => {
+    setJourney(loadedJourney);
+    setSelectedTouchpoint(undefined);
+    updateUndoRedoState(loadedJourney.id);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+      } else if (((event.ctrlKey || event.metaKey) && event.key === 'y') || 
+                 ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'z')) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Load saved journeys on component mount
   useEffect(() => {
-    const journeys = JourneyStorage.getAllJourneys();
+    const journeys = CRDTJourneyStorage.getAllJourneys();
     setSavedJourneys(journeys);
     
     // Auto-load the most recent journey if available
@@ -27,8 +90,13 @@ export default function Home() {
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )[0];
       loadJourney(mostRecent);
+    } else {
+      // Create a default journey if none exist
+      const newJourney = CRDTJourneyStorage.createJourney('My Customer Journey', 'Welcome to your first customer journey map!');
+      setJourney(newJourney);
+      setSavedJourneys([newJourney]);
     }
-  }, []);
+  }, [loadJourney]);
 
   const handleTouchpointClick = (touchpoint: Touchpoint) => {
     setSelectedTouchpoint(touchpoint);
@@ -39,101 +107,77 @@ export default function Home() {
   };
 
   const handleUpdateTouchpoint = (updatedTouchpoint: Touchpoint) => {
-    setTouchpoints(prev => 
-      prev.map(tp => tp.id === updatedTouchpoint.id ? updatedTouchpoint : tp)
+    if (!journey) return;
+    
+    const updatedJourney = CRDTJourneyStorage.updateTouchpoint(
+      journey.id,
+      updatedTouchpoint.id,
+      updatedTouchpoint
     );
-  };
-
-  const handleDeleteTouchpoint = (id: string) => {
-    setTouchpoints(prev => prev.filter(tp => tp.id !== id));
-    if (selectedTouchpoint?.id === id) {
-      setSelectedTouchpoint(undefined);
+    
+    if (updatedJourney) {
+      setJourney(updatedJourney);
+      updateUndoRedoState(journey.id);
     }
   };
 
-  const handleAddTouchpoint = (newTouchpoint: Touchpoint) => {
-    setTouchpoints(prev => [...prev, newTouchpoint]);
-  };
-
-  const loadJourney = (journey: JourneyMapType) => {
-    setCurrentJourneyId(journey.id);
-    setJourneyTitle(journey.title);
-    setJourneyDescription(journey.description || '');
-    setTouchpoints(journey.touchpoints);
-    setSelectedTouchpoint(undefined);
-  };
-
-  const handleSaveJourney = async () => {
-    setIsSaving(true);
-    try {
-      let savedJourney: JourneyMapType;
+  const handleDeleteTouchpoint = (id: string) => {
+    if (!journey) return;
+    
+    const updatedJourney = CRDTJourneyStorage.deleteTouchpoint(journey.id, id);
+    
+    if (updatedJourney) {
+      setJourney(updatedJourney);
+      updateUndoRedoState(journey.id);
       
-      if (currentJourneyId) {
-        // Update existing journey
-        savedJourney = JourneyStorage.updateJourney(currentJourneyId, {
-          title: journeyTitle,
-          description: journeyDescription,
-          touchpoints,
-        })!;
-      } else {
-        // Create new journey
-        savedJourney = JourneyStorage.saveJourney({
-          title: journeyTitle,
-          description: journeyDescription,
-          touchpoints,
-        });
-        setCurrentJourneyId(savedJourney.id);
+      if (selectedTouchpoint?.id === id) {
+        setSelectedTouchpoint(undefined);
       }
-      
-      // Update saved journeys list
-      setSavedJourneys(JourneyStorage.getAllJourneys());
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      alert('Journey saved successfully!');
-    } catch (error) {
-      console.error('Error saving journey:', error);
-      alert('Failed to save journey. Please try again.');
-    } finally {
-      setIsSaving(false);
+    }
+  };
+
+  const handleAddTouchpoint = (newTouchpoint: Omit<Touchpoint, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!journey) return;
+    
+    const updatedJourney = CRDTJourneyStorage.createTouchpoint(journey.id, newTouchpoint);
+    
+    if (updatedJourney) {
+      setJourney(updatedJourney);
+      updateUndoRedoState(journey.id);
+    }
+  };
+
+  const handleUpdateJourneyMetadata = (title: string, description?: string) => {
+    if (!journey) return;
+    
+    const updatedJourney = CRDTJourneyStorage.updateJourneyMetadata(journey.id, {
+      title,
+      description
+    });
+    
+    if (updatedJourney) {
+      setJourney(updatedJourney);
+      updateUndoRedoState(journey.id);
     }
   };
 
   const handleNewJourney = () => {
-    setCurrentJourneyId(null);
-    setJourneyTitle('New Customer Journey');
-    setJourneyDescription('');
-    setTouchpoints([]);
+    const newJourney = CRDTJourneyStorage.createJourney('New Customer Journey', 'Describe your customer journey here...');
+    setJourney(newJourney);
     setSelectedTouchpoint(undefined);
+    setSavedJourneys(CRDTJourneyStorage.getAllJourneys());
+    updateUndoRedoState(newJourney.id);
   };
 
   const handleExportJourney = () => {
-    if (currentJourneyId) {
-      const journey = JourneyStorage.getJourney(currentJourneyId);
-      if (journey) {
-        JourneyStorage.exportJourney(journey);
-      }
-    } else {
-      // Export current unsaved journey
-      const tempJourney: JourneyMapType = {
-        id: 'temp',
-        title: journeyTitle,
-        description: journeyDescription,
-        touchpoints,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        version: '1.0.0',
-      };
-      JourneyStorage.exportJourney(tempJourney);
+    if (journey) {
+      CRDTJourneyStorage.exportJourney(journey);
     }
   };
 
   const handlePresentJourney = () => {
-    if (currentJourneyId) {
-      window.open(`/present/${currentJourneyId}`, '_blank');
-    } else {
-      alert('Please save your journey first to present it!');
+    if (journey) {
+      window.open(`/present/${journey.id}`, '_blank');
     }
   };
 
@@ -142,10 +186,35 @@ export default function Home() {
     if (!file) return;
 
     try {
-      const importedJourney = await JourneyStorage.importJourney(file);
-      loadJourney(importedJourney);
-      setSavedJourneys(JourneyStorage.getAllJourneys());
-      alert('Journey imported successfully!');
+      // Read and parse the file
+      const content = await file.text();
+      const journeyData = JSON.parse(content);
+      
+      // Create new journey with imported data
+      const newJourney = CRDTJourneyStorage.createJourney(
+        journeyData.title + ' (Imported)',
+        journeyData.description || ''
+      );
+      
+      // Import touchpoints
+      if (Array.isArray(journeyData.touchpoints)) {
+        for (const tp of journeyData.touchpoints) {
+          CRDTJourneyStorage.createTouchpoint(newJourney.id, {
+            title: tp.title || 'Imported Touchpoint',
+            description: tp.description || '',
+            emotion: tp.emotion || 'neutral',
+            intensity: tp.intensity || 5,
+            xPosition: tp.xPosition || 50,
+          });
+        }
+      }
+      
+      const finalJourney = CRDTJourneyStorage.getJourney(newJourney.id);
+      if (finalJourney) {
+        loadJourney(finalJourney);
+        setSavedJourneys(CRDTJourneyStorage.getAllJourneys());
+        alert('Journey imported successfully!');
+      }
     } catch (error) {
       console.error('Error importing journey:', error);
       alert('Failed to import journey. Please check the file format.');
@@ -172,15 +241,50 @@ export default function Home() {
                   Hey there! 👋 Let&apos;s map out your customer&apos;s wild adventure!
                 </p>
               </div>
-              <div className="mt-4">
+              <div className="mt-4 space-y-3">
                 <input
                   type="text"
-                  value={journeyTitle}
-                  onChange={(e) => setJourneyTitle(e.target.value)}
-                  className="text-lg font-black border-3 border-dashed border-blue-400 bg-white focus:outline-none focus:border-green-400 rounded-lg px-4 py-3 transform -rotate-1 hover:rotate-0 transition-all"
+                  value={journey?.title || ''}
+                  onChange={(e) => handleUpdateJourneyMetadata(e.target.value, journey?.description)}
+                  className="text-lg font-black border-3 border-dashed border-blue-400 bg-white focus:outline-none focus:border-green-400 rounded-lg px-4 py-3 transform -rotate-1 hover:rotate-0 transition-all w-full"
                   style={{ boxShadow: '4px 4px 0 #60a5fa' }}
                   placeholder="What's this journey called?"
                 />
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handleUndo}
+                      disabled={!canUndo}
+                      className={`px-3 py-2 border-2 border-dashed font-bold text-sm rounded-lg transform hover:scale-105 transition-all ${
+                        !canUndo
+                          ? 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200'
+                      }`}
+                      title="Undo (Ctrl+Z)"
+                    >
+                      ↶ Undo
+                    </button>
+                    <button 
+                      onClick={handleRedo}
+                      disabled={!canRedo}
+                      className={`px-3 py-2 border-2 border-dashed font-bold text-sm rounded-lg transform hover:scale-105 transition-all ${
+                        !canRedo
+                          ? 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200'
+                      }`}
+                      title="Redo (Ctrl+Y)"
+                    >
+                      ↷ Redo
+                    </button>
+                  </div>
+                  {lastSaved && (
+                    <div className="bg-green-100 border-2 border-dashed border-green-300 rounded px-3 py-1">
+                      <span className="text-green-800 text-xs font-bold">
+                        ✓ Auto-saved {lastSaved.toLocaleTimeString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -200,13 +304,13 @@ export default function Home() {
               </button>
               <button 
                 onClick={handlePresentJourney}
-                disabled={!currentJourneyId}
+                disabled={!journey}
                 className={`px-5 py-3 border-3 font-black text-sm rounded-lg transform hover:rotate-1 transition-all ${
-                  !currentJourneyId
+                  !journey
                     ? 'bg-gray-300 border-gray-400 text-gray-600 cursor-not-allowed'
                     : 'bg-pink-400 hover:bg-pink-500 border-pink-600 text-white'
                 }`}
-                style={{ boxShadow: !currentJourneyId ? '2px 2px 0 #9ca3af' : '4px 4px 0 #ec4899' }}
+                style={{ boxShadow: !journey ? '2px 2px 0 #9ca3af' : '4px 4px 0 #ec4899' }}
               >
                 🎭 Present
               </button>
@@ -223,18 +327,6 @@ export default function Home() {
                 style={{ boxShadow: '4px 4px 0 #ea580c' }}
               >
                 📮 Bring In
-              </button>
-              <button 
-                onClick={handleSaveJourney}
-                disabled={isSaving}
-                className={`px-6 py-3 border-3 font-black text-sm rounded-lg transform hover:scale-105 transition-all ${
-                  isSaving 
-                    ? 'bg-gray-300 border-gray-400 text-gray-600 cursor-not-allowed' 
-                    : 'bg-yellow-400 hover:bg-yellow-500 border-yellow-600 text-gray-800 hover:-rotate-1'
-                }`}
-                style={{ boxShadow: isSaving ? '2px 2px 0 #9ca3af' : '4px 4px 0 #ca8a04' }}
-              >
-                {isSaving ? '💾 Saving...' : '💾 Keep It Safe'}
               </button>
             </div>
           </div>
@@ -269,38 +361,41 @@ export default function Home() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {savedJourneys.map((journey, index) => (
-                  <div
-                    key={journey.id}
-                    className={`p-5 border-3 border-dashed rounded-lg cursor-pointer transition-all transform hover:-rotate-1 hover:scale-105 ${
-                      currentJourneyId === journey.id
-                        ? 'border-blue-400 bg-blue-100'
-                        : 'border-gray-400 bg-white hover:border-orange-400 hover:bg-orange-50'
-                    }`}
-                    style={{ 
-                      boxShadow: currentJourneyId === journey.id 
-                        ? '6px 6px 0 #60a5fa' 
-                        : '4px 4px 0 #9ca3af',
-                      transform: `rotate(${(index % 3 - 1) * 2}deg)`
-                    }}
-                    onClick={() => {
-                      loadJourney(journey);
-                      setShowJourneyList(false);
-                    }}
-                  >
-                    <h4 className="font-black text-base text-gray-800 truncate mb-3">{journey.title}</h4>
-                    <div className="bg-white border-2 border-dashed border-gray-300 rounded px-3 py-2 mb-3">
-                      <p className="text-xs text-gray-700 font-bold">
-                        🎯 {journey.touchpoints.length} stops • 📅 {new Date(journey.updatedAt).toLocaleDateString()}
-                      </p>
+                {savedJourneys.map((savedJourney, index) => {
+                  const touchpointCount = CRDTJourneyStorage.getTouchpointsArray(savedJourney).length;
+                  return (
+                    <div
+                      key={savedJourney.id}
+                      className={`p-5 border-3 border-dashed rounded-lg cursor-pointer transition-all transform hover:-rotate-1 hover:scale-105 ${
+                        journey?.id === savedJourney.id
+                          ? 'border-blue-400 bg-blue-100'
+                          : 'border-gray-400 bg-white hover:border-orange-400 hover:bg-orange-50'
+                      }`}
+                      style={{ 
+                        boxShadow: journey?.id === savedJourney.id 
+                          ? '6px 6px 0 #60a5fa' 
+                          : '4px 4px 0 #9ca3af',
+                        transform: `rotate(${(index % 3 - 1) * 2}deg)`
+                      }}
+                      onClick={() => {
+                        loadJourney(savedJourney);
+                        setShowJourneyList(false);
+                      }}
+                    >
+                      <h4 className="font-black text-base text-gray-800 truncate mb-3">{savedJourney.title}</h4>
+                      <div className="bg-white border-2 border-dashed border-gray-300 rounded px-3 py-2 mb-3">
+                        <p className="text-xs text-gray-700 font-bold">
+                          🎯 {touchpointCount} stops • 📅 {new Date(savedJourney.updatedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {savedJourney.description && (
+                        <p className="text-xs text-gray-600 font-bold truncate bg-gray-100 border border-dashed border-gray-300 rounded px-2 py-1">
+                          💭 {savedJourney.description}
+                        </p>
+                      )}
                     </div>
-                    {journey.description && (
-                      <p className="text-xs text-gray-600 font-bold truncate bg-gray-100 border border-dashed border-gray-300 rounded px-2 py-1">
-                        💭 {journey.description}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -309,22 +404,26 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Journey Visualization */}
-        <div className="mb-8">
-          <JourneyMap 
-            touchpoints={touchpoints}
-            onTouchpointClick={handleTouchpointClick}
-            onAddTouchpoint={handleAddTouchpoint}
-            onUpdateTouchpoint={handleUpdateTouchpoint}
-          />
-        </div>
+        {journey && (
+          <>
+            <div className="mb-8">
+              <JourneyMap 
+                touchpoints={CRDTJourneyStorage.getTouchpointsArray(journey)}
+                onTouchpointClick={handleTouchpointClick}
+                onAddTouchpoint={handleAddTouchpoint}
+                onUpdateTouchpoint={handleUpdateTouchpoint}
+              />
+            </div>
 
-        {/* Touchpoint Details */}
-        <TouchpointDetails
-          touchpoints={touchpoints}
-          selectedTouchpoint={selectedTouchpoint}
-          onUpdateTouchpoint={handleUpdateTouchpoint}
-          onDeleteTouchpoint={handleDeleteTouchpoint}
-        />
+            {/* Touchpoint Details */}
+            <TouchpointDetails
+              touchpoints={CRDTJourneyStorage.getTouchpointsArray(journey)}
+              selectedTouchpoint={selectedTouchpoint}
+              onUpdateTouchpoint={handleUpdateTouchpoint}
+              onDeleteTouchpoint={handleDeleteTouchpoint}
+            />
+          </>
+        )}
       </main>
 
       {/* Footer */}

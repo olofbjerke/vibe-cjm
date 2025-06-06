@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { JourneyStorage, type JourneyMap as JourneyMapType } from '@/lib/storage';
+import { CRDTJourneyStorage, type JourneyMap as JourneyMapType } from '@/lib/crdt-storage';
 import PresentationJourneyMap from '@/components/PresentationJourneyMap';
 
 export default function PresentPage() {
@@ -14,7 +14,7 @@ export default function PresentPage() {
   useEffect(() => {
     const journeyId = params.id as string;
     if (journeyId) {
-      const loadedJourney = JourneyStorage.getJourney(journeyId);
+      const loadedJourney = CRDTJourneyStorage.getJourney(journeyId);
       if (loadedJourney) {
         setJourney(loadedJourney);
       } else {
@@ -33,8 +33,9 @@ export default function PresentPage() {
     );
   }
 
-  // Sort touchpoints by their xPosition to maintain spatial order from the editing canvas
-  const sortedTouchpoints = [...journey.touchpoints].sort((a, b) => a.xPosition - b.xPosition);
+  // Get touchpoints array and sort by xPosition to maintain spatial order from the editing canvas
+  const touchpointsArray = CRDTJourneyStorage.getTouchpointsArray(journey);
+  const sortedTouchpoints = [...touchpointsArray].sort((a, b) => a.xPosition - b.xPosition);
 
   const handleTouchpointClick = (index: number) => {
     setActiveIndex(index);
