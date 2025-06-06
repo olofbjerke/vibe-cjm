@@ -4,6 +4,8 @@
 	"private": true,
 	"scripts": {
 		"dev": "next dev --turbopack",
+		"dev:ws": "node dev-websocket-server.js",
+		"dev:full": "concurrently \"npm run dev\" \"npm run dev:ws\"",
 		"build": "next build",
 		"start": "next start",
 		"lint": "next lint",
@@ -23,10 +25,13 @@
 		"@types/node": "^20.17.58",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
+		"concurrently": "^9.1.0",
 		"eslint": "^9",
 		"eslint-config-next": "15.3.3",
+		"express": "^4.21.2",
 		"tailwindcss": "^4",
 		"typescript": "^5",
+		"ws": "^8.18.0",
 		"wrangler": "^4.19.1"
 	}
 }

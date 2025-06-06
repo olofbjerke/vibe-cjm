@@ -183,6 +183,12 @@ export default function Home() {
     }
   };
 
+  const handleStartCollaboration = () => {
+    if (journey) {
+      router.push(`/collaborate/${journey.id}`);
+    }
+  };
+
   const handleImportJourney = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -296,6 +302,18 @@ export default function Home() {
                 style={{ boxShadow: '4px 4px 0 #16a34a' }}
               >
                 ✨ Fresh Start
+              </button>
+              <button 
+                onClick={handleStartCollaboration}
+                disabled={!journey}
+                className={`px-5 py-3 border-3 font-black text-sm rounded-lg transform hover:rotate-2 transition-all ${
+                  !journey
+                    ? 'bg-gray-300 border-gray-400 text-gray-600 cursor-not-allowed'
+                    : 'bg-purple-400 hover:bg-purple-500 border-purple-600 text-white'
+                }`}
+                style={{ boxShadow: !journey ? '2px 2px 0 #9ca3af' : '4px 4px 0 #9333ea' }}
+              >
+                🤝 Collaborate
               </button>
               <button 
                 onClick={() => setShowJourneyList(!showJourneyList)}

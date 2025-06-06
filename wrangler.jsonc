@@ -17,6 +17,15 @@
 	},
 	"observability": {
 		"enabled": true
+	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "COLLABORATION_ROOM",
+				"class_name": "CollaborationRoom",
+				"script_name": "cjm-worker"
+			}
+		]
 	}
 	/**
 	 * Smart Placement
