@@ -145,7 +145,7 @@ export default function AboutPage() {
               🎉 A vibe coding experiment by Olof Bjerke 🎉
             </p>
             <p className="text-center text-gray-700 text-xs font-bold mt-1">
-              Made with ☕ and lots of fun! • <a href="/about" className="underline hover:text-pink-800">About this experiment</a>
+              Made with ☕ and lots of fun! • <Link href="/about" className="underline hover:text-pink-800">About this experiment</Link>
             </p>
           </div>
         </div>

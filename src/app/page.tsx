@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import JourneyMap from '@/components/JourneyMap';
 import TouchpointDetails from '@/components/TouchpointDetails';
 import { type TouchpointWithImage, type JourneyMapWithImages, IndexedDBJourneyStorage } from '@/lib/indexeddb-storage';
@@ -557,7 +558,7 @@ export default function Home() {
               🎉 A vibe coding experiment by Olof Bjerke 🎉
             </p>
             <p className="text-center text-gray-700 text-xs font-bold mt-1">
-              Made with ☕ and lots of fun! • <a href="/about" className="underline hover:text-pink-800">About this experiment</a>
+              Made with ☕ and lots of fun! • <Link href="/about" className="underline hover:text-pink-800">About this experiment</Link>
             </p>
           </div>
         </div>
