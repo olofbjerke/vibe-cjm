@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import JourneyMap from '@/components/JourneyMap';
 import Footer from '@/components/Footer';
 import TouchpointDetails from '@/components/TouchpointDetails';
