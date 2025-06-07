@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CJM Worker - AI-Generated Vibe Coding Experiment
+
+This is a vibe coding experiment to see how far I can take an AI agent without writing a single line of code. All code has been generated via [Claude Code](https://claude.ai/code) except for the initial project bootstrap using the Cloudflare Next.js boilerplate.
+
+## What's Built
+
+This project appears to be a collaborative journey mapping application with real-time collaboration features, including:
+- Real-time collaboration via WebSockets
+- CRDT (Conflict-free Replicated Data Types) for collaborative editing
+- Presentation mode for journey maps
+- Auto-save functionality
+
+## Framework & Technology Stack
+
+- **Framework**: [Next.js 15](https://nextjs.org) with React 19
+- **Styling**: TailwindCSS 4
+- **Real-time**: WebSockets with Express.js dev server
+- **State Management**: Custom CRDT implementation
+- **TypeScript**: Full type safety
+
+## Deployment
+
+This application is configured to deploy on **Cloudflare Workers** using:
+- [`@opennextjs/cloudflare`](https://github.com/opennextjs/opennextjs-cloudflare) - OpenNext.js adapter for Cloudflare
+- **Cloudflare Durable Objects** for persistent collaboration rooms
+- **Wrangler** for deployment and development
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Install dependencies
+npm install
+
+# Run development server with WebSocket support
+npm run dev:full
+
+# Or run separately
+npm run dev        # Next.js dev server
+npm run dev:ws     # WebSocket server
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Deploy to Cloudflare Workers
+npm run deploy
 
-## Learn More
+# Preview deployment
+npm run preview
 
-To learn more about Next.js, take a look at the following resources:
+# Generate Cloudflare types
+npm run cf-typegen
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## The Experiment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project demonstrates the capabilities of AI-assisted development, where complex features like real-time collaboration, CRDT synchronization, and WebSocket communication were implemented entirely through AI code generation. The goal is to push the boundaries of what's possible with AI-driven development workflows.
