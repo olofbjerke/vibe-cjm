@@ -286,6 +286,47 @@ export default function Home() {
     }
   };
 
+  const handleDeleteJourney = async (journeyToDelete: JourneyMapWithImages, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click when deleting
+    
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${journeyToDelete.title}"? This action cannot be undone.`
+    );
+    
+    if (!confirmDelete) return;
+    
+    try {
+      const success = await IndexedDBJourneyStorage.deleteJourney(journeyToDelete.id);
+      
+      if (success) {
+        // Update saved journeys list
+        const updatedJourneys = savedJourneys.filter(j => j.id !== journeyToDelete.id);
+        setSavedJourneys(updatedJourneys);
+        
+        // If we're deleting the currently active journey, clear it or load another
+        if (journey?.id === journeyToDelete.id) {
+          if (updatedJourneys.length > 0) {
+            // Load the most recent remaining journey
+            const mostRecent = updatedJourneys.sort((a, b) => 
+              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            )[0];
+            loadJourney(mostRecent);
+          } else {
+            // Create a new default journey if no journeys remain
+            const newJourney = await IndexedDBJourneyStorage.createJourney('My Customer Journey', 'Welcome to your first customer journey map!');
+            setJourney(newJourney);
+            setSavedJourneys([newJourney]);
+          }
+        }
+      } else {
+        alert('Failed to delete journey. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting journey:', error);
+      alert('An error occurred while deleting the journey.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-green-50 to-blue-50" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header */}
@@ -438,7 +479,7 @@ export default function Home() {
                   return (
                     <div
                       key={savedJourney.id}
-                      className={`p-5 border-3 border-dashed rounded-lg cursor-pointer transition-all transform hover:-rotate-1 hover:scale-105 ${
+                      className={`relative p-5 border-3 border-dashed rounded-lg cursor-pointer transition-all transform hover:-rotate-1 hover:scale-105 ${
                         journey?.id === savedJourney.id
                           ? 'border-blue-400 bg-blue-100'
                           : 'border-gray-400 bg-white hover:border-orange-400 hover:bg-orange-50'
@@ -454,7 +495,17 @@ export default function Home() {
                         setShowJourneyList(false);
                       }}
                     >
-                      <h4 className="font-black text-base text-gray-800 truncate mb-3">{savedJourney.title}</h4>
+                      {/* Delete button */}
+                      <button
+                        onClick={(e) => handleDeleteJourney(savedJourney, e)}
+                        className="absolute top-2 right-2 bg-red-400 hover:bg-red-500 text-white w-8 h-8 rounded-full border-2 border-red-600 font-black text-xs transform hover:rotate-12 hover:scale-110 transition-all"
+                        style={{ boxShadow: '2px 2px 0 #dc2626' }}
+                        title="Delete journey"
+                      >
+                        🗑️
+                      </button>
+                      
+                      <h4 className="font-black text-base text-gray-800 truncate mb-3 pr-10">{savedJourney.title}</h4>
                       <div className="bg-white border-2 border-dashed border-gray-300 rounded px-3 py-2 mb-3">
                         <p className="text-xs text-gray-700 font-bold">
                           🎯 {touchpointCount} stops • 📅 {new Date(savedJourney.updatedAt).toLocaleDateString()}

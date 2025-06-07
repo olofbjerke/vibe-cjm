@@ -298,6 +298,33 @@ export function useJourneyStorage(options: UseJourneyStorageOptions) {
     }
   }, [journey, journeyId, collaboration]);
 
+  // Delete journey
+  const deleteJourney = useCallback(async (journeyIdToDelete: string) => {
+    try {
+      const success = await IndexedDBJourneyStorage.deleteJourney(journeyIdToDelete);
+      
+      if (success) {
+        // Also delete from CRDT storage for consistency
+        CRDTJourneyStorage.deleteJourney(journeyIdToDelete);
+        
+        // If we're deleting the current journey, clear the state
+        if (journeyIdToDelete === journeyId) {
+          setJourney(null);
+          setHasChanges(false);
+        }
+        
+        return true;
+      } else {
+        setError('Failed to delete journey');
+        return false;
+      }
+    } catch (err) {
+      console.error('Error deleting journey:', err);
+      setError('Failed to delete journey');
+      return false;
+    }
+  }, [journeyId]);
+
   // Get touchpoints as array
   const touchpoints = journey ? IndexedDBJourneyStorage.getTouchpointsArray(journey) : [];
 
@@ -332,6 +359,7 @@ export function useJourneyStorage(options: UseJourneyStorageOptions) {
     createTouchpoint,
     updateTouchpoint,
     deleteTouchpoint,
+    deleteJourney,
     updateJourneyMetadata,
     saveJourney: forceSave,
 

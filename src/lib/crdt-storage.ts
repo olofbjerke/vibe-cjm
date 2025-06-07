@@ -29,7 +29,8 @@ export type Operation =
   | { type: 'CREATE_TOUCHPOINT'; touchpoint: Touchpoint; timestamp: number; operationId: string }
   | { type: 'UPDATE_TOUCHPOINT'; touchpointId: string; changes: Partial<Touchpoint>; timestamp: number; operationId: string }
   | { type: 'DELETE_TOUCHPOINT'; touchpointId: string; timestamp: number; operationId: string }
-  | { type: 'UPDATE_JOURNEY_METADATA'; changes: { title?: string; description?: string }; timestamp: number; operationId: string };
+  | { type: 'UPDATE_JOURNEY_METADATA'; changes: { title?: string; description?: string }; timestamp: number; operationId: string }
+  | { type: 'DELETE_JOURNEY'; timestamp: number; operationId: string };
 
 export interface OperationHistory {
   operations: Operation[];
@@ -468,5 +469,29 @@ export class CRDTJourneyStorage {
       version: this.CURRENT_VERSION,
       operationCount: 0,
     } as JourneyMap;
+  }
+
+  // Delete a journey
+  static deleteJourney(journeyId: string): boolean {
+    const journeys = this.getAllJourneys();
+    const journeyIndex = journeys.findIndex(j => j.id === journeyId);
+    
+    if (journeyIndex === -1) return false;
+    
+    // Remove the journey from the array
+    journeys.splice(journeyIndex, 1);
+    
+    try {
+      // Save updated journeys list
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(journeys));
+      
+      // Clean up operation history for the deleted journey
+      localStorage.removeItem(`${this.HISTORY_KEY}-${journeyId}`);
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting journey:', error);
+      return false;
+    }
   }
 }

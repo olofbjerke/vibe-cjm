@@ -515,6 +515,47 @@ export class IndexedDBJourneyStorage {
     }
   }
 
+  // Delete a specific journey by ID
+  static async deleteJourney(id: string): Promise<boolean> {
+    try {
+      const db = await this.ensureDB();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.JOURNEYS_STORE, this.OPERATIONS_STORE], 'readwrite');
+        
+        // Delete the journey from the journeys store
+        const journeysStore = transaction.objectStore(this.JOURNEYS_STORE);
+        const deleteJourneyRequest = journeysStore.delete(id);
+        
+        // Delete the operation history from the operations store
+        const operationsStore = transaction.objectStore(this.OPERATIONS_STORE);
+        const deleteOperationsRequest = operationsStore.delete(id);
+
+        transaction.oncomplete = () => {
+          resolve(true);
+        };
+
+        transaction.onerror = () => {
+          console.error('Error deleting journey:', transaction.error);
+          reject(transaction.error);
+        };
+
+        deleteJourneyRequest.onerror = () => {
+          console.error('Error deleting journey from journeys store:', deleteJourneyRequest.error);
+          reject(deleteJourneyRequest.error);
+        };
+
+        deleteOperationsRequest.onerror = () => {
+          console.error('Error deleting journey from operations store:', deleteOperationsRequest.error);
+          reject(deleteOperationsRequest.error);
+        };
+      });
+    } catch (error) {
+      console.error('Error deleting journey:', error);
+      return false;
+    }
+  }
+
   // Clear all data
   static async clearAllData(): Promise<boolean> {
     try {
