@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { IndexedDBJourneyStorage, type JourneyMapWithImages, type TouchpointWithImage } from '@/lib/indexeddb-storage';
+import { IndexedDBJourneyStorage, type JourneyMapWithImages } from '@/lib/indexeddb-storage';
 import PresentationJourneyMap from '@/components/PresentationJourneyMap';
 
 export default function PresentPage() {

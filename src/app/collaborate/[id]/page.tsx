@@ -27,10 +27,6 @@ export default function CollaboratePage() {
     }
   }, []);
 
-  const handleUseDifferentName = useCallback(() => {
-    setUserName('');
-    setShowNamePrompt(true);
-  }, []);
 
   // Unified storage hook with collaboration support
   const {

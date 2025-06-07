@@ -33,7 +33,7 @@ export default function Home() {
   );
 
   // Update undo/redo availability (temporarily disabled for IndexedDB)
-  const updateUndoRedoState = (journeyId: string) => {
+  const updateUndoRedoState = () => {
     // TODO: Implement undo/redo for IndexedDB
     setCanUndo(false);
     setCanRedo(false);
@@ -52,7 +52,7 @@ export default function Home() {
   const loadJourney = useCallback((loadedJourney: JourneyMapWithImages) => {
     setJourney(loadedJourney);
     setSelectedTouchpoint(undefined);
-    updateUndoRedoState(loadedJourney.id);
+    updateUndoRedoState();
   }, []);
 
   // Keyboard shortcuts
@@ -135,7 +135,7 @@ export default function Home() {
       
       if (updatedJourney) {
         setJourney(updatedJourney);
-        updateUndoRedoState(journey.id);
+        updateUndoRedoState();
       }
     } catch (error) {
       console.error('Error updating touchpoint:', error);
@@ -150,7 +150,7 @@ export default function Home() {
       
       if (updatedJourney) {
         setJourney(updatedJourney);
-        updateUndoRedoState(journey.id);
+        updateUndoRedoState();
         
         if (selectedTouchpoint?.id === id) {
           setSelectedTouchpoint(undefined);
@@ -169,7 +169,7 @@ export default function Home() {
       
       if (updatedJourney) {
         setJourney(updatedJourney);
-        updateUndoRedoState(journey.id);
+        updateUndoRedoState();
       }
     } catch (error) {
       console.error('Error adding touchpoint:', error);
@@ -187,7 +187,7 @@ export default function Home() {
       
       if (updatedJourney) {
         setJourney(updatedJourney);
-        updateUndoRedoState(journey.id);
+        updateUndoRedoState();
       }
     } catch (error) {
       console.error('Error updating journey metadata:', error);
@@ -201,7 +201,7 @@ export default function Home() {
       setSelectedTouchpoint(undefined);
       const allJourneys = await IndexedDBJourneyStorage.getAllJourneys();
       setSavedJourneys(allJourneys);
-      updateUndoRedoState(newJourney.id);
+      updateUndoRedoState();
     } catch (error) {
       console.error('Error creating new journey:', error);
     }
