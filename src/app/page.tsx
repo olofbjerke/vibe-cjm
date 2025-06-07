@@ -506,7 +506,7 @@ export default function Home() {
               🎉 A vibe coding experiment by Olof Bjerke 🎉
             </p>
             <p className="text-center text-gray-700 text-xs font-bold mt-1">
-              Made with ☕ and lots of fun!
+              Made with ☕ and lots of fun! • <a href="/about" className="underline hover:text-pink-800">About this experiment</a>
             </p>
           </div>
         </div>
