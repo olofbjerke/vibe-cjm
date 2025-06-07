@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-green-50 to-blue-50" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -5,9 +7,9 @@ export default function AboutPage() {
       <header className="bg-white border-b-4 border-dashed border-orange-300" style={{ boxShadow: '0 8px 0 #fed7aa' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center py-8">
-            <a href="/" className="text-2xl sm:text-4xl font-black text-gray-800 transform -rotate-1 hover:rotate-0 transition-all" style={{ textShadow: '3px 3px 0 #fbbf24' }}>
+            <Link href="/" className="text-2xl sm:text-4xl font-black text-gray-800 transform -rotate-1 hover:rotate-0 transition-all" style={{ textShadow: '3px 3px 0 #fbbf24' }}>
               🛣️ Bumpy Road
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -28,7 +30,7 @@ export default function AboutPage() {
                 This whole thing is an AI-generated vibe coding experiment! We wanted to see how far AI assistance could take us without writing a single line of code manually. 🤖✨
               </p>
               <p className="text-gray-800 font-bold">
-                Everything you see here was generated via Claude Code, except for the initial project bootstrap. It's like having a super smart coding buddy who never gets tired! 💪
+                Everything you see here was generated via Claude Code, except for the initial project bootstrap. It&apos;s like having a super smart coding buddy who never gets tired! 💪
               </p>
             </div>
           </section>
@@ -37,7 +39,7 @@ export default function AboutPage() {
             <div className="bg-green-200 border-2 border-dashed border-green-400 rounded-lg p-6 transform -rotate-1" style={{ boxShadow: '4px 4px 0 #22c55e' }}>
               <h2 className="text-2xl font-black text-gray-800 mb-4">🎯 What We Built</h2>
               <p className="text-gray-800 font-bold mb-4">
-                A collaborative journey mapping tool that's actually pretty awesome:
+                A collaborative journey mapping tool that&apos;s actually pretty awesome:
               </p>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="bg-white border-2 border-dashed border-green-300 rounded p-3">
@@ -94,7 +96,7 @@ export default function AboutPage() {
                 <div className="bg-white border-2 border-dashed border-pink-300 rounded-lg p-4 transform -rotate-1">
                   <h3 className="font-black text-pink-800 mb-2">🚫 No Conflicts Zone</h3>
                   <p className="text-xs text-gray-700 font-bold">
-                    CRDT tech keeps everyone in sync without stepping on each other's toes. It's like magic! ✨
+                    CRDT tech keeps everyone in sync without stepping on each other&apos;s toes. It&apos;s like magic! ✨
                   </p>
                 </div>
                 <div className="bg-white border-2 border-dashed border-pink-300 rounded-lg p-4 transform rotate-1">
@@ -106,7 +108,7 @@ export default function AboutPage() {
                 <div className="bg-white border-2 border-dashed border-pink-300 rounded-lg p-4 transform -rotate-1">
                   <h3 className="font-black text-pink-800 mb-2">💾 Never Lose Anything</h3>
                   <p className="text-xs text-gray-700 font-bold">
-                    Auto-save has your back! No more "did I save that?" panic moments. Phew! 😅
+                    Auto-save has your back! No more &quot;did I save that?&quot; panic moments. Phew! 😅
                   </p>
                 </div>
               </div>
@@ -117,7 +119,7 @@ export default function AboutPage() {
             <div className="bg-orange-200 border-2 border-dashed border-orange-400 rounded-lg p-6 transform rotate-1" style={{ boxShadow: '4px 4px 0 #ea580c' }}>
               <h2 className="text-2xl font-black text-gray-800 mb-4">🌍 Global Deployment</h2>
               <p className="text-gray-800 font-bold mb-4">
-                This baby runs on Cloudflare's edge network for lightning-fast performance everywhere:
+                This baby runs on Cloudflare&apos;s edge network for lightning-fast performance everywhere:
               </p>
               <div className="grid sm:grid-cols-3 gap-3">
                 <div className="bg-white border-2 border-dashed border-orange-300 rounded p-3 text-center">
