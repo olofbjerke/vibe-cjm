@@ -201,7 +201,53 @@ export class CollaborationRoom {
 
   private sendMessage(websocket: WebSocket, message: CollaborationMessage) {
     try {
-      websocket.send(JSON.stringify(message));
+      const messageStr = JSON.stringify(message);
+      const messageSize = new Blob([messageStr]).size;
+      
+      // Cloudflare Workers WebSocket limit is typically 1MB
+      if (messageSize > 1024 * 1024) { // 1MB limit
+        console.warn(`Message too large for WebSocket: ${messageSize} bytes. Stripping image data.`);
+        
+        // Strip image data from large messages
+        if (message.type === 'operation' && message.data) {
+          const data = message.data as { operation?: { touchpoint?: unknown; changes?: unknown } };
+          
+          // Remove image data from operations
+          if (data.operation) {
+            if (data.operation.touchpoint && typeof data.operation.touchpoint === 'object' && data.operation.touchpoint !== null) {
+              const touchpoint = data.operation.touchpoint as Record<string, unknown>;
+              if (touchpoint.imageData) {
+                const imageName = touchpoint.imageName as string || 'unknown';
+                delete touchpoint.imageData;
+                delete touchpoint.imageName;
+                delete touchpoint.imageType;
+                data.operation.touchpoint = touchpoint;
+                console.log(`Stripped image data from touchpoint: ${imageName}`);
+              }
+            }
+            
+            if (data.operation.changes && typeof data.operation.changes === 'object' && data.operation.changes !== null) {
+              const changes = data.operation.changes as Record<string, unknown>;
+              if (changes.imageData) {
+                const imageName = changes.imageName as string || 'unknown';
+                delete changes.imageData;
+                delete changes.imageName;
+                delete changes.imageType;
+                data.operation.changes = changes;
+                console.log(`Stripped image data from changes: ${imageName}`);
+              }
+            }
+          }
+        }
+        
+        // Re-stringify after stripping image data
+        const strippedMessageStr = JSON.stringify(message);
+        const newSize = new Blob([strippedMessageStr]).size;
+        console.log(`Message size reduced from ${messageSize} to ${newSize} bytes`);
+        websocket.send(strippedMessageStr);
+      } else {
+        websocket.send(messageStr);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     }

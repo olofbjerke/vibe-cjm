@@ -105,7 +105,7 @@ export class CollaborativeCRDT {
           journeyId: this.journeyId,
           operation,
           operationId: operation.operationId,
-          currentState: journey, // Send the current state
+          // Removed currentState to avoid sending full journey with images
         },
         timestamp: Date.now(),
         userId: this.userId,
