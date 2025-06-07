@@ -1,4 +1,5 @@
 // Custom worker that extends OpenNext with Durable Objects
+// @ts-ignore `.open-next/worker.ts` is generated at build time
 import { default as openNextHandler } from "./.open-next/worker.js";
 
 // Export the CollaborationRoom Durable Object
