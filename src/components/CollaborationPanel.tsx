@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { type CollaborativeUser } from '@/lib/collaborative-crdt';
+import { useOffline } from '@/hooks/useOffline';
 
 interface CollaborationPanelProps {
   users: CollaborativeUser[];
@@ -26,6 +27,7 @@ export default function CollaborationPanel({
   const [isExpanded, setIsExpanded] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newUserName, setNewUserName] = useState(currentUserName || '');
+  const { isOnline, isSyncing } = useOffline();
 
   // Update local state when currentUserName changes
   useEffect(() => {
@@ -92,7 +94,27 @@ export default function CollaborationPanel({
       {isExpanded && (
         <>
           {/* Connection Status */}
-          <div className="p-4 border-b-2 border-dashed border-purple-200">
+          <div className="p-4 border-b-2 border-dashed border-purple-200 space-y-3">
+            {/* Online/Offline Status */}
+            <div className={`flex items-center gap-2 p-3 rounded-lg border-2 border-dashed ${
+              isOnline 
+                ? 'bg-green-100 border-green-300 text-green-800'
+                : 'bg-orange-100 border-orange-300 text-orange-800'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                isOnline ? 'bg-green-500' : 'bg-orange-500'
+              }`} />
+              <span className="font-bold text-sm">
+                {isOnline ? 'Online' : 'Offline'}
+              </span>
+              {isSyncing && (
+                <div className="ml-auto">
+                  <div className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+
+            {/* Collaboration Status */}
             <div className={`flex items-center gap-2 p-3 rounded-lg border-2 border-dashed ${
               isConnected 
                 ? 'bg-green-100 border-green-300 text-green-800'
@@ -102,14 +124,22 @@ export default function CollaborationPanel({
                 isConnected ? 'bg-green-500' : 'bg-red-500'
               }`} />
               <span className="font-bold text-sm">
-                {isConnected ? 'Connected' : 'Disconnected'}
+                Collaboration {isConnected ? 'Active' : 'Inactive'}
               </span>
             </div>
             
             {connectionError && (
-              <p className="text-red-600 text-xs font-bold mt-2">
+              <p className="text-red-600 text-xs font-bold">
                 {connectionError}
               </p>
+            )}
+
+            {!isOnline && (
+              <div className="bg-yellow-100 border-2 border-dashed border-yellow-300 rounded-lg p-3">
+                <p className="text-yellow-800 text-xs font-bold text-center">
+                  Working offline - changes will sync when reconnected
+                </p>
+              </div>
             )}
           </div>
 

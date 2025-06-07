@@ -1,0 +1,22 @@
+{
+  "name": "Customer Journey Mapper",
+  "short_name": "CJM Worker",
+  "description": "Create and collaborate on customer journey maps offline and online",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#a855f7",
+  "orientation": "landscape-primary",
+  "categories": ["business", "productivity", "collaboration"],
+  "icons": [
+    {
+      "src": "/window.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr"
+}
